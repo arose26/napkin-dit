@@ -806,6 +806,21 @@ def cmd_selfcheck(a):
     assert abs(frechet(f, f.clone())) < 1e-6, "FMD of a set with itself must be ~0"
     assert frechet(f, f + 3) > 8, "FMD must grow with a mean shift"
 
+    # -- 6. the GPU-resident dataset must be the DataLoader's data, not merely shaped like it
+    for train, n in ((True, 60000), (False, 10000)):
+        d = gpu_dataset(train=train)
+        assert d.shape == (n, 1, 32, 32), f"gpu_dataset(train={train}) shape {tuple(d.shape)}"
+        assert d.min() >= -1 - 1e-6 and d.max() <= 1 + 1e-6, "dataset outside [-1,1]"
+        ref = torch.cat([b for b, _ in loader(2000, train, False, shuffle=False)][:3]).to(DEV)
+        assert torch.equal(d[:len(ref)], ref), f"gpu_dataset(train={train}) != the DataLoader"
+    # ...and `batches` must be an epoch-shuffled drop_last pass: every index exactly once.
+    idx = torch.arange(10, device=DEV, dtype=torch.float).view(10, 1, 1, 1)
+    it = batches(idx, 3, torch.Generator(DEV).manual_seed(0))
+    ep = torch.cat([next(it).flatten() for _ in range(3)]).long()
+    assert len(ep) == 9 and len(ep.unique()) == 9, f"batches() repeats or drops: {ep.tolist()}"
+    nxt = next(it).flatten().long()                  # the 4th batch must reshuffle, not wrap
+    assert len(nxt) == 3, "batches() must always yield a full batch (drop_last)"
+
     # -- 3. one fixed batch, both backbones x both objectives, driven to the floor --
     # DEVIATION FROM THE REGISTERED SPEC, stated rather than quietly relaxed. The design
     # doc registered "overfittable to ~1e-15". That is unreachable: an MSE of 1e-15 means
