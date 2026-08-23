@@ -30,11 +30,16 @@ train_all () {                             # 20 runs, NPAR at a time
        > logs/train-$1-$2-s$3.log 2>&1 || echo "FAILED $1 $2 $3"' "$PY"
 }
 
-sweep_sharded () {                         # $1 = tier; one process per seed
-  $PY napkin_dit.py sweep --tier "$1" --seed 0 --nfe 2 || return 1   # builds out/clf.pt once
+sweep_sharded () {                         # one process per seed
+  # NOTE the two kinds of $1 below. Outside the single quotes, "$1" is THIS function's
+  # argument (the tier) and expands now; inside them, $1 is the inner shell's first
+  # positional (the seed) and expands per xargs line. They look identical and are not, so
+  # the tier is bound to a named local first -- a second reader read this as a bug.
+  local tier=$1
+  $PY napkin_dit.py sweep --tier "$tier" --seed 0 --nfe 2 || return 1   # builds out/clf.pt
   for s in 0 1 2 3 4; do echo "$s"; done | xargs -P 5 -L1 bash -c \
-    '$0 napkin_dit.py sweep --tier '"$1"' --seed $1 > logs/sweep-'"$1"'-s$1.log 2>&1 \
-       || echo "FAILED sweep '"$1"' $1"' "$PY"
+    '$0 napkin_dit.py sweep --tier "$1" --seed "$2" > "logs/sweep-$1-s$2.log" 2>&1 \
+       || echo "FAILED sweep $1 seed $2"' "$PY" "$tier"
 }
 
 phase selfcheck  $PY napkin_dit.py selfcheck            || exit 1
