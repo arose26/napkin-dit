@@ -540,14 +540,16 @@ def cmd_probe(a):
         print(f"probe {b:4s} lr={lr:<7g} " + " ".join(f"{o}={v:.4f}" for o, v in ls.items()),
               flush=True)
 
-    res = {}
-    for f in sorted((OUT / "probe").glob("*.json")):
-        b, lr = f.stem.rsplit("-", 1)
-        res.setdefault(b, {})[lr] = json.loads(f.read_text())
-    best = {}
+    # Read back only the shards for the LR grid ASKED FOR. Globbing the directory would
+    # silently fold in shards from a previous --lrs set and rank against a different grid.
+    res, best = {}, {}
+    for b in a.backbone:
+        got = {f"{lr:g}": OUT / "probe" / f"{b}-{lr:g}.json" for lr in a.lrs}
+        if not all(f.exists() for f in got.values()):
+            print(f"probe incomplete for {b}: "
+                  f"{sum(f.exists() for f in got.values())}/{len(a.lrs)} shards"); return
+        res[b] = {k: json.loads(f.read_text()) for k, f in got.items()}
     for b, d in res.items():
-        if len(d) < len(a.lrs):
-            print(f"probe incomplete for {b}: {len(d)}/{len(a.lrs)} shards"); return
         # Losses are not comparable ACROSS objectives (different targets, different target
         # variance), so rank LRs within each objective and score by mean rank.
         rank = {lr: 0 for lr in d}
