@@ -747,7 +747,7 @@ def cmd_selfcheck(a):
     # -- 2. flow matching and DDPM agree on the marginal variance schedule --------
     x0 = torch.randn(64, 1, 32, 32, device=DEV)
     eps = torch.randn_like(x0)
-    worst_x, worst_e = 0.0, 0.0
+    worst_x, worst_e, nd = 0.0, 0.0, 0.0
     torch.manual_seed(0)
     net = build("unet")
     dn_e, dn_f = Denoiser(net, "eps"), Denoiser(net, "flow")
@@ -758,14 +758,24 @@ def cmd_selfcheck(a):
         xt_flow = ((1 - u) * x0 + u * eps) / (1 - u)
         worst_x = max(worst_x, ((xt_ddpm - xt_flow).abs().max()
                                 / xt_ddpm.abs().max()).item())
-        # and the two adapters must feed the SAME net the same thing at the same sigma
+        # ...and the eps adapter must be the raw net plus the documented scaling, nothing
+        # else. The tolerance CANNOT be a constant: cuDNN picks convolution algorithms
+        # nondeterministically, and how much that costs is hardware-dependent -- 3e-07 on a
+        # laptop 4050, 2.6e-06 on a T4, which failed a 1e-6 threshold calibrated on the
+        # former. So measure the floor on THIS device (call the raw net twice on identical
+        # input) and require the adapter to sit inside it. An independently measured
+        # baseline beats a magic number (Metastrategy #7: re-derive the property).
         with torch.no_grad():
-            ref = net(xt_ddpm * (1 / (1 + s ** 2)) ** .5,
-                      torch.full((64,), float(sigma_to_t(s).item()), device=DEV))
+            inp = xt_ddpm * (1 / (1 + s ** 2)) ** .5
+            tt = torch.full((64,), float(sigma_to_t(s).item()), device=DEV)
+            r1, r2 = net(inp, tt), net(inp, tt)
+            nd = max(nd, ((r1 - r2).abs().max() / r1.abs().max()).item())
             got = dn_e.eps_hat(xt_ddpm, s)
-        worst_e = max(worst_e, ((ref - got).abs().max() / ref.abs().max()).item())
+        worst_e = max(worst_e, ((r1 - got).abs().max() / r1.abs().max()).item())
     assert worst_x < 1e-4, f"FM and DDPM marginals disagree, rel err {worst_x:.2e}"
-    assert worst_e < 1e-6, f"eps adapter is not the raw net, rel err {worst_e:.2e}"
+    assert worst_e <= max(1e-7, 4 * nd), \
+        f"eps adapter is not the raw net: rel err {worst_e:.2e} vs a same-input " \
+        f"nondeterminism floor of {nd:.2e} on this device"
     # the flow adapter's algebra: given a net that emits the TRUE v, eps_hat must be exact
     class TrueV(nn.Module):
         def forward(self, xu, t):
@@ -855,7 +865,8 @@ def cmd_selfcheck(a):
           + "  ".join(f"{k} {v[0]:.1e}/{v[1]:.2f}={v[2]:.1e}" for k, v in floors.items()))
     print(f"selfcheck OK  params unet={pu} dit={pd} ({abs(pd-pu)/pu*100:.1f}% apart), "
           f"per-pixel leak {leak:.1e} (vs {mixleak:.1e} with attention on), "
-          f"FM/DDPM marginal err {worst_x:.1e}, "
+          f"FM/DDPM marginal err {worst_x:.1e}, eps adapter {worst_e:.1e} "
+          f"(device nondeterminism floor {nd:.1e}), "
           f"eta=1 err {err:.1e}, euler err {err2:.1e}")
 
 
