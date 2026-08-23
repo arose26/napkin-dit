@@ -22,6 +22,11 @@ mkdir -p logs
 NPAR=4 STEPS=14000 setsid nohup ./run.sh > driver.log 2>&1 &
 ```
 
+**Never `git pull` while the driver is running.** bash reads a script incrementally, so
+rewriting `run.sh` underneath a live driver can make it resume at a byte offset that is now
+the middle of a different line. Pull only when no driver is running — i.e. before the launch,
+or after a `.done.*` sentinel shows the last phase finished.
+
 `setsid` matters: without it the driver dies with the cell. A `%%bash` cell **raises** on any
 nonzero exit, so do not end such a cell with `ls .done.*` — with no sentinels yet that `ls`
 exits 2 and the cell reports a failure while the detached driver is running perfectly well.

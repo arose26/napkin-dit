@@ -37,7 +37,9 @@ sweep_sharded () {                         # one process per seed
   # the tier is bound to a named local first -- a second reader read this as a bug.
   local tier=$1
   $PY napkin_dit.py sweep --tier "$tier" --seed 0 --nfe 2 || return 1   # builds out/clf.pt
-  for s in 0 1 2 3 4; do echo "$s"; done | xargs -P 5 -L1 bash -c \
+  # -P "$NPAR", not a hardcoded 5: the sweep contends for the same 2 vCPU and the same GPU
+  # as training does, so there is no reason for its concurrency to be a different number.
+  for s in 0 1 2 3 4; do echo "$s"; done | xargs -P "$NPAR" -L1 bash -c \
     '$0 napkin_dit.py sweep --tier "$1" --seed "$2" > "logs/sweep-$1-s$2.log" 2>&1 \
        || echo "FAILED sweep $1 seed $2"' "$PY" "$tier"
 }
