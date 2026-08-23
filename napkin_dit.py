@@ -481,7 +481,7 @@ def train_one(backbone, objective, seed, steps, lr, bs=128, warmup=500, fashion=
     scaler = torch.amp.GradScaler("cuda", enabled=DEV == "cuda")
     g = torch.Generator(DEV).manual_seed(seed)
     src = batches(gpu_dataset(fashion), bs, g)
-    t0, step, last = time.time(), 0, float("nan")
+    t0, step, tail = time.time(), 0, []
     while step < steps:
         x = next(src)
         with torch.amp.autocast("cuda", enabled=DEV == "cuda"):
@@ -492,16 +492,17 @@ def train_one(backbone, objective, seed, steps, lr, bs=128, warmup=500, fashion=
             for k, v in net.state_dict().items():
                 ema[k].mul_(0.999).add_(v.detach(), alpha=0.001) \
                     if v.dtype.is_floating_point else ema[k].copy_(v)
-        step += 1; last = loss.item()
-        if step % log_every == 0:
+        step += 1
+        tail.append(loss.item()); del tail[:-200]      # a single minibatch MSE is far too
+        if step % log_every == 0:                      # noisy to rank learning rates on
             print(f"{backbone}/{objective} s{seed} step {step}/{steps} "
-                  f"loss {last:.4f} {time.time()-t0:.0f}s", flush=True)
+                  f"loss {tail[-1]:.4f} {time.time()-t0:.0f}s", flush=True)
     if save:
         p.parent.mkdir(parents=True, exist_ok=True)
         torch.save({"ema": ema, "backbone": backbone, "objective": objective,
                     "seed": seed, "steps": steps, "lr": lr}, p)
         print("saved", p, f"({time.time()-t0:.0f}s)", flush=True)
-    return last
+    return sum(tail) / len(tail)                       # mean over the last 200 steps
 
 
 def load_den(backbone, objective, seed):
@@ -633,7 +634,7 @@ def cmd_agg(a):
                 line += f"{(f'{iqm(v):.2f} [{boot_ci(v)[0]:.2f},{boot_ci(v)[1]:.2f}]' if v else '-'):>27}"
             print(line)
             # rank stability: how often does a k-seed subset name the same winner as all 5?
-            if nfe == nfes[-1] and all(len(v) >= 3 for v in vals.values()):
+            if nfe in (nfes[0], nfes[-1]) and all(len(v) >= 3 for v in vals.values()):
                 print("       rank-stability P(best@k == best@N): " + rank_stability(vals))
     (OUT / f"agg-{a.tier}.json").write_text(json.dumps(out, indent=2))
     plot(out, a.tier)
