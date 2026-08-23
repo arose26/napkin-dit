@@ -123,20 +123,29 @@ Measured on the laptop 4050, same machine, same batch, warmup discarded:
 So the tutorial-inherited DataLoader was costing **more than half the throughput** of a
 napkin-scale run. That is the whole "match the machine to the bottleneck" lesson in one row.
 
-Which made the next hypothesis look obvious and it was wrong. The EMA update is a Python
-loop over `state_dict()`, two in-place ops per tensor — **180 tensors for the UNet**, so ~360
-extra kernel launches per step on a box whose 2 vCPUs were measurably pinned at the launch
-ceiling (4 concurrent processes at ~43% of a core each = 2 cores fully consumed). Fusing it
+Which made the next hypothesis look obvious. The EMA update is a Python loop over
+`state_dict()`, two in-place ops per tensor — **180 tensors for the UNet**, so ~360 extra
+kernel launches per step. On the T4 the 2 vCPUs were measurably pinned at the launch ceiling
+(4 concurrent workers at ~43% of a core each = 2 cores fully consumed), so fusing the loop
 with `torch._foreach_mul_`/`_foreach_add_` should have been a large, three-line win.
 
-It was worth **1.06x** on the UNet and **1.02x** on the DiT. And the ceiling on any EMA
-optimisation whatsoever — measured by deleting the EMA update entirely — is 1.07x / 1.02x.
-Forward and backward dominate; the launch count was a red herring.
+On the **4050** it was worth **1.06x** (UNet) and **1.02x** (DiT), and the ceiling on any EMA
+optimisation whatsoever — measured by deleting the update entirely — is 1.07x / 1.02x.
+Forward and backward dominate there; the launch count is a red herring.
 
-So the fusion does not get written. Careful, correct, well-commented code that moves no
-number is not neutral (Metastrategy #18): it would have implied to the next reader that EMA
-cost was load-bearing here, which the measurement says it is not. The five minutes spent
-measuring bought a deletion.
+**Scope that claim honestly, because the first draft of this entry did not.** It said the
+hypothesis was refuted, full stop. It was refuted *on the 4050* — a machine with more cores
+and a much faster GPU, i.e. a completely different CPU-to-GPU ratio from a 2-vCPU T4. Launch
+overhead is by definition a larger share of the step on the slower-CPU box, so the
+launch-bound argument predicts the fusion matters **more** on the T4, not less, and the 4050
+number cannot rule that out. This is the same cross-hardware error as the tolerance entry
+below, made by the same person two hours later, in a file that already warned about it.
+
+So: the fusion is not written, on the narrower ground that nothing measured shows it helping
+and unmeasured code that moves no number is not neutral (Metastrategy #18) — a fused EMA
+would imply to the next reader that EMA cost was load-bearing. The T4 case is **open**, and
+settling it costs a fifth process on two cores, which would perturb the run it is trying to
+speed up. Deliberately left unresolved rather than answered with the wrong machine's number.
 
 ### A tolerance calibrated on one GPU is not a tolerance
 
@@ -183,6 +192,12 @@ machine.
   10624-10629. Metastrategy #26 word for word. The reliable list of workers was
   `nvidia-smi --query-compute-apps=pid,used_memory`, which by construction only names
   processes that actually hold GPU memory.
+- **NPAR=4 on 2 vCPUs: left alone under acknowledged uncertainty, not because it is free.**
+  Four workers at ~43% of a core each saturate both cores, so aggregate throughput is capped
+  by the CPU no matter how many processes run — NPAR=2 would plausibly match it with half the
+  VRAM and less scheduler churn. Whether 4 is actually *worse* than 2 here is **unmeasured**:
+  finding out costs restarting the phase, and there is no evidence the change wins. That is a
+  decision made under stated uncertainty, which is a different thing from "it costs nothing".
 - **A silent phase is an unreadable phase.** The probe shards run with `log_every=10**9`, so
   for twenty minutes the only progress signal was `probe=0/6` — which cannot distinguish slow
   from wedged, exactly the state Metastrategy #31 says you most need to detect. What did
