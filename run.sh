@@ -38,7 +38,16 @@ sweep_sharded () {                         # $1 = tier; one process per seed
 }
 
 phase selfcheck  $PY napkin_dit.py selfcheck            || exit 1
-phase probe      $PY napkin_dit.py probe --steps $STEPS  || exit 1
+probe_all () {                             # shard by (backbone, lr), then reduce
+  for b in unet dit; do for lr in 1e-4 2e-4 5e-4; do echo "$b $lr"; done; done \
+    | xargs -P "$NPAR" -L1 bash -c \
+      '$0 napkin_dit.py probe --backbone $1 --lrs $2 --steps '"$STEPS"' \
+         > logs/probe-$1-$2.log 2>&1 || echo "FAILED probe $1 $2"' "$PY"
+  $PY napkin_dit.py probe --steps "$STEPS"          # all shards present -> writes out/lr.json
+  [ -f out/lr.json ]
+}
+
+phase probe      probe_all                               || exit 1
 phase train      train_all                               || exit 1
 phase sweep_headline   sweep_sharded headline            || exit 1
 phase agg_headline     $PY napkin_dit.py agg --tier headline

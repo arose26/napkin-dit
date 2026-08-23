@@ -521,28 +521,42 @@ def cmd_train(a):
 
 
 def cmd_probe(a):
-    """LR per backbone at 1/6 length. A naively-tuned transformer losing to a tuned UNet is
+    """LR per backbone at 1/4 length. A naively-tuned transformer losing to a tuned UNet is
     the classic rigged 2x2, and P1 predicts exactly that outcome -- so the LR must not be
-    what produces it. Picked per BACKBONE (not per cell) to keep the objective axis clean."""
-    res, steps = {}, max(200, a.steps // 6)
-    for b in a.backbone:
-        for lr in a.lrs:
-            ls = [train_one(b, o, 0, steps, lr, a.bs, save=False, log_every=10**9)
-                  for o in a.objective]
-            # losses are not comparable across objectives (different targets), so rank each
-            # objective's LR separately and score a backbone's LR by its mean rank.
-            res.setdefault(b, {})[lr] = ls
-            print(f"probe {b:4s} lr={lr:<7g} " +
-                  " ".join(f"{o}={v:.4f}" for o, v in zip(a.objective, ls)), flush=True)
+    what produces it. Picked per BACKBONE, not per cell, to keep the objective axis clean.
+
+    One file per (backbone, lr): existence = done, so this shards across processes the same
+    way the sweep does. Once every shard exists, any invocation reduces them to out/lr.json.
+    """
+    steps = max(200, a.steps // 4)
+    for b, lr in itertools.product(a.backbone, a.lrs):
+        f = OUT / "probe" / f"{b}-{lr:g}.json"
+        if f.exists():
+            continue
+        ls = {o: train_one(b, o, 0, steps, lr, a.bs, save=False, log_every=10 ** 9)
+              for o in a.objective}
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(ls))
+        print(f"probe {b:4s} lr={lr:<7g} " + " ".join(f"{o}={v:.4f}" for o, v in ls.items()),
+              flush=True)
+
+    res = {}
+    for f in sorted((OUT / "probe").glob("*.json")):
+        b, lr = f.stem.rsplit("-", 1)
+        res.setdefault(b, {})[lr] = json.loads(f.read_text())
     best = {}
     for b, d in res.items():
+        if len(d) < len(a.lrs):
+            print(f"probe incomplete for {b}: {len(d)}/{len(a.lrs)} shards"); return
+        # Losses are not comparable ACROSS objectives (different targets, different target
+        # variance), so rank LRs within each objective and score by mean rank.
         rank = {lr: 0 for lr in d}
-        for j in range(len(a.objective)):
-            for i, lr in enumerate(sorted(d, key=lambda k: d[k][j])):
+        for o in a.objective:
+            for i, lr in enumerate(sorted(d, key=lambda k: d[k][o])):
                 rank[lr] += i
-        best[b] = min(rank, key=rank.get)
+        best[b] = float(min(rank, key=rank.get))
+        print(f"{b}: ranks {rank} -> lr {best[b]:g}")
     (OUT / "lr.json").write_text(json.dumps(best, indent=2))
-    (OUT / "probe.json").write_text(json.dumps(res, indent=2))
     print("chosen LRs:", best)
 
 
@@ -881,7 +895,7 @@ if __name__ == "__main__":
     p.add_argument("--steps", type=int, default=14000)
     p.add_argument("--bs", type=int, default=128)
     p.add_argument("--lr", type=float, default=None, help="override out/lr.json")
-    p.add_argument("--lrs", type=float, nargs="+", default=[1e-4, 2e-4, 5e-4, 1e-3])
+    p.add_argument("--lrs", type=float, nargs="+", default=[1e-4, 2e-4, 5e-4])
     p.add_argument("--n", type=int, default=10000, help="samples per sweep point")
     p.add_argument("--nfe", type=int, nargs="+", default=[2, 4, 8, 16, 32, 64])
     p.add_argument("--tier", default="headline", choices=list(TIERS))
