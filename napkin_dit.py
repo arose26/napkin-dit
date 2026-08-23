@@ -374,12 +374,39 @@ def sample_ddim_eta(net, n, eta, nfe, seed=0, clamp=True):
 # ------------------------------------------------------------------------- data
 
 def loader(bs, train=True, fashion=False, shuffle=True):
+    """Only used to build the GPU-resident cache and to train the metric CNN (needs labels)."""
     tf = transforms.Compose([transforms.ToTensor(), transforms.Pad(2),
                              transforms.Normalize((0.5,), (0.5,))])
     ds = (datasets.FashionMNIST if fashion else datasets.MNIST)(
         OUT / "data", train=train, download=True, transform=tf)
-    return torch.utils.data.DataLoader(ds, batch_size=bs, shuffle=shuffle,
-                                       num_workers=2, drop_last=train, persistent_workers=train)
+    return torch.utils.data.DataLoader(ds, batch_size=bs, shuffle=shuffle, num_workers=2)
+
+
+def gpu_dataset(fashion=False, train=True):
+    """The whole split resident on the GPU, cached to disk after the first build.
+
+    MNIST padded to 32x32 is 245MB in float32, so there is no reason for it to live behind a
+    DataLoader -- and a real reason for it not to: the sweep runs 5 training processes
+    concurrently on one GPU, and Colab's free tier gives 2 vCPU. Five runs x two worker
+    processes starves on CPU while the GPU idles. Profiling the bottleneck rather than the
+    marketing is Metastrategy #15; measured speedup is in INSIGHTS.md.
+    """
+    cache = OUT / f"gpu-{'fashion' if fashion else 'mnist'}-{'train' if train else 'test'}.pt"
+    if not cache.exists():
+        OUT.mkdir(exist_ok=True)
+        x = torch.cat([b for b, _ in loader(1000, train, fashion, shuffle=False)])
+        torch.save(x, cache.with_suffix(".tmp")); cache.with_suffix(".tmp").rename(cache)
+    return torch.load(cache, map_location=DEV, weights_only=True)
+
+
+def batches(data, bs, gen):
+    """Epoch-shuffled minibatches, drop_last, entirely on-device. Same sampling law as
+    DataLoader(shuffle=True, drop_last=True) -- just without leaving the GPU."""
+    n = data.shape[0]
+    while True:
+        perm = torch.randperm(n, device=DEV, generator=gen)
+        for i in range(0, n - bs + 1, bs):
+            yield data[perm[i:i + bs]]
 
 # ------------------------------------------------------------------------- FMD
 # Frechet distance in the feature space of a small MNIST CNN. NOT FID: comparable within
@@ -411,7 +438,8 @@ def train_clf(fashion=False, epochs=2):
         for x, y in loader(256, True, fashion):
             loss = F.cross_entropy(clf(x.to(DEV)), y.to(DEV))
             opt.zero_grad(); loss.backward(); opt.step()
-    torch.save(clf.state_dict(), p)
+    torch.save(clf.state_dict(), p.with_suffix(".tmp"))     # atomic: sweep runs sharded
+    p.with_suffix(".tmp").rename(p)
     return clf.eval()
 
 
@@ -451,25 +479,23 @@ def train_one(backbone, objective, seed, steps, lr, bs=128, warmup=500, fashion=
     opt = torch.optim.AdamW(net.parameters(), lr)
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lambda s: min(1.0, (s + 1) / warmup))
     scaler = torch.amp.GradScaler("cuda", enabled=DEV == "cuda")
-    dl = loader(bs, True, fashion)
+    g = torch.Generator(DEV).manual_seed(seed)
+    src = batches(gpu_dataset(fashion), bs, g)
     t0, step, last = time.time(), 0, float("nan")
     while step < steps:
-        for x, _ in dl:
-            if step >= steps:
-                break
-            x = x.to(DEV, non_blocking=True)
-            with torch.amp.autocast("cuda", enabled=DEV == "cuda"):
-                loss = den.loss(x)
-            opt.zero_grad(set_to_none=True)
-            scaler.scale(loss).backward(); scaler.step(opt); scaler.update(); sched.step()
-            with torch.no_grad():
-                for k, v in net.state_dict().items():
-                    ema[k].mul_(0.999).add_(v.detach(), alpha=0.001) \
-                        if v.dtype.is_floating_point else ema[k].copy_(v)
-            step += 1; last = loss.item()
-            if step % log_every == 0:
-                print(f"{backbone}/{objective} s{seed} step {step}/{steps} "
-                      f"loss {last:.4f} {time.time()-t0:.0f}s", flush=True)
+        x = next(src)
+        with torch.amp.autocast("cuda", enabled=DEV == "cuda"):
+            loss = den.loss(x)
+        opt.zero_grad(set_to_none=True)
+        scaler.scale(loss).backward(); scaler.step(opt); scaler.update(); sched.step()
+        with torch.no_grad():
+            for k, v in net.state_dict().items():
+                ema[k].mul_(0.999).add_(v.detach(), alpha=0.001) \
+                    if v.dtype.is_floating_point else ema[k].copy_(v)
+        step += 1; last = loss.item()
+        if step % log_every == 0:
+            print(f"{backbone}/{objective} s{seed} step {step}/{steps} "
+                  f"loss {last:.4f} {time.time()-t0:.0f}s", flush=True)
     if save:
         p.parent.mkdir(parents=True, exist_ok=True)
         torch.save({"ema": ema, "backbone": backbone, "objective": objective,
@@ -537,9 +563,9 @@ def cmd_sweep(a):
     clf = train_clf(a.dataset == "fashion")
     # Reference is ALWAYS the full test set, never a prefix of length a.n: the two halves of
     # the MNIST test set are measurably different populations (t07's afternoon).
-    real = torch.cat([x for x, _ in loader(500, False, a.dataset == "fashion", shuffle=False)])
-    fr = feats(clf, real)
+    fr = feats(clf, gpu_dataset(a.dataset == "fashion", train=False))
     solvers, spacings, seeds = TIERS[a.tier]
+    seeds = [x for x in seeds if x in a.seed]        # --seed shards the sweep across procs
     for b, o, s in itertools.product(a.backbone, a.objective, seeds):
         if not ckpt_path(b, o, s).exists():
             print(f"missing ckpt {b}/{o}/s{s} -- skipping"); continue
@@ -791,8 +817,7 @@ def cmd_selfcheck(a):
     # RELATIVE -- final loss against the same cell's step-0 loss -- which is the scale-free
     # version of the claim actually under test: the forward process and its target agree
     # well enough that the pair can be driven to zero.
-    x, _ = next(iter(loader(32, True)))
-    x = x.to(DEV)
+    x = gpu_dataset()[:32]
     floors = {}
     for b, o in itertools.product(BACKBONES, OBJECTIVES):
         torch.manual_seed(0)
