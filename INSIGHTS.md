@@ -97,14 +97,59 @@ therefore its own swept rung across all four cells, not a passenger on the objec
 The inherited t07 identities still hold in the rewritten harness: `ancestral == DDIM(eta=1)`
 to 3.4e-06, sigma-space Euler `==` x-space DDIM(eta=0) to 2.7e-04.
 
+### The DataLoader was the wrong tool for a 246MB dataset
+
+Padded MNIST is 60000x1x32x32 float32 = **246MB**. It was sitting behind a
+`DataLoader(num_workers=2)` purely because that is what the t07 harness inherited from every
+PyTorch tutorial. The venue made the cost visible: **Colab free tier gives 2 vCPU**, and the
+sweep runs several training processes concurrently on one GPU, so N processes x 2 worker
+processes contend for two cores while the GPU waits.
+
+The dataset now lives on the device and batches come from `torch.randperm` on-GPU — same
+sampling law as `DataLoader(shuffle=True, drop_last=True)`, asserted in selfcheck against
+the DataLoader's own bytes and against index coverage over one epoch. Metastrategy #15 says
+match the machine to the bottleneck; the corollary is that the bottleneck of a napkin-scale
+experiment is rarely the arithmetic.
+
+### A tolerance calibrated on one GPU is not a tolerance
+
+The selfcheck asserts that the eps adapter is the raw network plus the documented scaling
+and nothing else — `assert worst_e < 1e-6`, which passed at **3.0e-07** on the laptop 4050.
+It **failed on the Colab T4 at 2.62e-06**, on identical code and identical inputs.
+
+Nothing was wrong. cuDNN selects convolution algorithms nondeterministically, and how much
+that costs is a property of the hardware, not of the code: calling the same net twice on
+bit-identical input differs by ~0 on the 4050 and ~2.6e-06 on the T4. The threshold had
+quietly encoded "this GPU" into the experiment.
+
+Fix, and the general shape of the fix: **measure the floor instead of guessing it.** The
+check now calls the raw net twice on the same input, takes that as the device's
+nondeterminism floor, and requires the adapter to sit inside a small multiple of it. The
+property under test was always "the adapter applies no transformation", never "two forward
+passes are bit-identical" — a real transformation would be orders of magnitude above the
+floor, which is exactly the discrimination a constant threshold cannot make portably.
+
+This is the failure mode Metastrategy #7 warns about, and it is worth noticing which way it
+went: the assert fired on a **healthy** system, and the temptation was to bump 1e-6 to 1e-5
+and move on. That would have left a number in the file that means nothing on the next
+machine.
+
 ### Ops
 
 - Passed a **fabricated SSH public key** to `create-pod` (invented the base64 rather than
   reading `~/.ssh/*.pub`), so the pod was unreachable and had to be destroyed and
   recreated. Two minutes and $0.02. Read the key file; never type a key.
 - The laptop 4050 is occupied by series 3 (`napkin-nemesis`, ~3.6GB of 6GB). Local sweep
-  estimate was **~15 hours** of training alone, fighting a live experiment for SMs. Rented
-  a 4090 instead (Metastrategy #15, memory `maximize-gpu-usage`).
+  estimate was **~15 hours** of training alone, fighting a live experiment for SMs.
+- Reached for a rented 4090 first. That was over-applying a standing "rent freely" rule to a
+  job that does not need it: this is a 2.8M-param net on MNIST, i.e. a T4-class workload, and
+  Colab was available. Two of three rented pods never ran at all — the first because a
+  **fabricated SSH public key** was passed to `create-pod` (invented base64 instead of
+  reading `~/.ssh/*.pub`), the second because the host driver reported CUDA 12.4 while the
+  image demanded >=12.8, so the container crash-looped every 16 seconds while still billing.
+  Both were diagnosed only by reading the pod's own system log, which said exactly that. The
+  lesson is not "runpod is bad"; it is that the venue decision deserved measuring the job
+  first (Metastrategy #16) and that a standing rule is not a substitute for sizing.
 - `phase()` in `run.sh` was tested against a job that exits 0 and a job that exits 7 before
   being trusted, and against a re-run to confirm a completed phase is skipped. rc=7 is
   captured and distinguished from rc=0 (Metastrategy #33).
