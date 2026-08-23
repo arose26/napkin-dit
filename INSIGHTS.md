@@ -111,6 +111,33 @@ the DataLoader's own bytes and against index coverage over one epoch. Metastrate
 match the machine to the bottleneck; the corollary is that the bottleneck of a napkin-scale
 experiment is rarely the arithmetic.
 
+### Moving the data on-device was worth 2.2x; the "obvious" next optimisation was worth 0
+
+Measured on the laptop 4050, same machine, same batch, warmup discarded:
+
+| | DataLoader | GPU-resident data |
+|---|---|---|
+| UNet | 7.0 steps/s | **15.4 steps/s** |
+| DiT | 4.0 steps/s | **8.7 steps/s** |
+
+So the tutorial-inherited DataLoader was costing **more than half the throughput** of a
+napkin-scale run. That is the whole "match the machine to the bottleneck" lesson in one row.
+
+Which made the next hypothesis look obvious and it was wrong. The EMA update is a Python
+loop over `state_dict()`, two in-place ops per tensor — **180 tensors for the UNet**, so ~360
+extra kernel launches per step on a box whose 2 vCPUs were measurably pinned at the launch
+ceiling (4 concurrent processes at ~43% of a core each = 2 cores fully consumed). Fusing it
+with `torch._foreach_mul_`/`_foreach_add_` should have been a large, three-line win.
+
+It was worth **1.06x** on the UNet and **1.02x** on the DiT. And the ceiling on any EMA
+optimisation whatsoever — measured by deleting the EMA update entirely — is 1.07x / 1.02x.
+Forward and backward dominate; the launch count was a red herring.
+
+So the fusion does not get written. Careful, correct, well-commented code that moves no
+number is not neutral (Metastrategy #18): it would have implied to the next reader that EMA
+cost was load-bearing here, which the measurement says it is not. The five minutes spent
+measuring bought a deletion.
+
 ### A tolerance calibrated on one GPU is not a tolerance
 
 The selfcheck asserts that the eps adapter is the raw network plus the documented scaling
@@ -150,6 +177,18 @@ machine.
   Both were diagnosed only by reading the pod's own system log, which said exactly that. The
   lesson is not "runpod is bad"; it is that the venue decision deserved measuring the job
   first (Metastrategy #16) and that a standing rule is not a substitute for sizing.
+- **`pgrep -f` returned the xargs wrapper shells, not the workers.** `py-spy dump --pid` on
+  the first match failed with "Failed to find python version from target process" because
+  pids 10621-10623 were bash wrappers sitting at 0s CPU while the real python processes were
+  10624-10629. Metastrategy #26 word for word. The reliable list of workers was
+  `nvidia-smi --query-compute-apps=pid,used_memory`, which by construction only names
+  processes that actually hold GPU memory.
+- **A silent phase is an unreadable phase.** The probe shards run with `log_every=10**9`, so
+  for twenty minutes the only progress signal was `probe=0/6` — which cannot distinguish slow
+  from wedged, exactly the state Metastrategy #31 says you most need to detect. What did
+  distinguish them was accumulated CPU time per pid (546-570s across 21 min of wall clock,
+  i.e. ~43% of a core each), which is a two-sample progress measurement rather than a
+  liveness check.
 - `phase()` in `run.sh` was tested against a job that exits 0 and a job that exits 7 before
   being trusted, and against a re-run to confirm a completed phase is skipped. rc=7 is
   captured and distinguished from rc=0 (Metastrategy #33).
