@@ -558,6 +558,14 @@ def cmd_probe(a):
                 rank[lr] += i
         best[b] = float(min(rank, key=rank.get))
         print(f"{b}: ranks {rank} -> lr {best[b]:g}")
+    if set(a.backbone) != set(BACKBONES):
+        # A SHARDED invocation (--backbone unet) must not write the global file: it would
+        # publish a one-backbone lr.json, and the next shard's reduce would overwrite that
+        # with the other backbone alone. Observed live -- lr.json held {"unet": 5e-4} while
+        # the dit shards were still running. run.sh's final full reduce did repair it, but
+        # only by luck of ordering, and cmd_train reading it mid-probe would have silently
+        # fallen back to the 2e-4 default for whichever backbone was missing.
+        print(f"partial reduce over {a.backbone}: {best} (not written)"); return
     (OUT / "lr.json").write_text(json.dumps(best, indent=2))
     print("chosen LRs:", best)
 
