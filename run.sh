@@ -8,7 +8,15 @@ D=$(cd "$(dirname "$0")" && pwd)          # absolute: never rely on inherited cw
 cd "$D"
 PY=${PY:-python3}
 STEPS=${STEPS:-14000}
-NPAR=${NPAR:-6}
+# Concurrency is a per-MACHINE tuning, and the right value inverted between the two boxes
+# this ran on. Measured, unet, 250 steps after warmup, GPU-resident data:
+#   laptop 4050 (12 threads, 6GB):  NPAR=1 -> 14.7 st/s aggregate
+#                                   NPAR=2 ->  6.4 st/s each = 12.9 aggregate  (WORSE)
+#   Colab T4   (2 vCPU):            4 workers each pinned at ~43% of a core, i.e. the two
+#                                   cores saturated and the GPU not -- concurrency helped.
+# One process already saturates the 4050, so the default is 1. Override for a wide machine:
+# NPAR=4 ./run.sh. Do not raise it blind -- measure, because the bottleneck moves.
+NPAR=${NPAR:-1}
 LOG=$D/logs; mkdir -p "$LOG" out
 
 phase () {                                 # phase <name> <cmd...>
@@ -37,8 +45,8 @@ sweep_sharded () {                         # one process per seed
   # the tier is bound to a named local first -- a second reader read this as a bug.
   local tier=$1
   $PY napkin_dit.py sweep --tier "$tier" --seed 0 --nfe 2 || return 1   # builds out/clf.pt
-  # -P "$NPAR", not a hardcoded 5: the sweep contends for the same 2 vCPU and the same GPU
-  # as training does, so there is no reason for its concurrency to be a different number.
+  # -P "$NPAR", not a hardcoded 5: the sweep contends for the same CPU and the same GPU as
+  # training does, so there is no reason for its concurrency to be a different number.
   for s in 0 1 2 3 4; do echo "$s"; done | xargs -P "$NPAR" -L1 bash -c \
     '$0 napkin_dit.py sweep --tier "$1" --seed "$2" > "logs/sweep-$1-s$2.log" 2>&1 \
        || echo "FAILED sweep $1 seed $2"' "$PY" "$tier"

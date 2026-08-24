@@ -192,12 +192,35 @@ machine.
   10624-10629. Metastrategy #26 word for word. The reliable list of workers was
   `nvidia-smi --query-compute-apps=pid,used_memory`, which by construction only names
   processes that actually hold GPU memory.
-- **NPAR=4 on 2 vCPUs: left alone under acknowledged uncertainty, not because it is free.**
-  Four workers at ~43% of a core each saturate both cores, so aggregate throughput is capped
-  by the CPU no matter how many processes run — NPAR=2 would plausibly match it with half the
-  VRAM and less scheduler churn. Whether 4 is actually *worse* than 2 here is **unmeasured**:
-  finding out costs restarting the phase, and there is no evidence the change wins. That is a
-  decision made under stated uncertainty, which is a different thing from "it costs nothing".
+- **The optimal concurrency inverted between two machines, and so did the bottleneck.**
+  Measured properly on each box (unet, 250 steps after warmup, GPU-resident data):
+
+  | | per-proc | aggregate |
+  |---|---|---|
+  | 4050, NPAR=1 | 14.7 st/s | **14.7** |
+  | 4050, NPAR=2 | 6.4 st/s | 12.9 — *worse than one process* |
+  | T4, 4 workers | ~3.2 st/s | ~11, and the 2 vCPUs pinned at 172% of 200% |
+
+  One process already saturates the 6GB 4050, so a second is worse than useless; on the
+  2-vCPU T4 the GPU was idle-ish and the **CPU launch path** was the ceiling, so 4-wide
+  helped. Same code, opposite bottleneck. `NPAR` therefore defaults to 1 with the numbers
+  written into `run.sh` next to it, because the next machine will invert it again.
+
+  This also closes the EMA question left open above, in the direction that makes the earlier
+  rescoping correct rather than merely cautious: fusing kernel launches *cannot* help a
+  GPU-bound box, which is exactly why it measured 1.06x on the 4050. The T4's launch-bound
+  regime was genuinely a different regime, and refusing to rule on it from 4050 numbers was
+  the right call — the two boxes do not even share a bottleneck.
+
+- **I measured a crash and reported it as a throughput curve.** The first concurrency sweep
+  printed a beautiful monotone result — 39 st/s at NPAR=1 rising to 682 st/s at NPAR=4 —
+  because the timing script lived in a scratch directory, could not `import napkin_dit`, and
+  every worker exited 1 in milliseconds. I was measuring how fast python can fail to start.
+  Nothing in the harness caught it: the loop timed wall clock and divided by an assumed step
+  count, so a faster crash looked like a faster machine. The fix is the rule from
+  Metastrategy #27 applied to benchmarks and not just to watchers — **check the exit code and
+  parse a number the work itself printed, before dividing anything by it.** The corrected
+  version reads each worker's rc file and its stdout, and would have refused to print.
 - **A silent phase is an unreadable phase.** The probe shards run with `log_every=10**9`, so
   for twenty minutes the only progress signal was `probe=0/6` — which cannot distinguish slow
   from wedged, exactly the state Metastrategy #31 says you most need to detect. What did
