@@ -81,3 +81,36 @@ Re-run the launch block. Every phase and every result file is existence-checked,
 restart costs at most the runs that were in flight. Colab free tier is one GPU per account
 quota; the fallback account is `?authuser=1` as a **query** param (a `#...&authuser=1`
 fragment is ignored).
+
+## Stopped 2026-08-24 (Kole: runtime too long)
+
+Halted deliberately, not by failure. Nothing is running: no compute apps on the laptop, 0
+runpod pods, the Colab VM is reaped.
+
+State on disk, all of which `./run.sh` skips on resume:
+
+| | |
+|---|---|
+| `.done.selfcheck` | `0` — passed in 4m07s locally |
+| `out/probe/` | 1 of 6 shards (`unet-0.0001.json`) |
+| `out/ckpt/` | 0 of 20 |
+| `out/res/` | 0 |
+
+Resume with `./run.sh` — nothing needs reconstructing.
+
+**The open decision, unresolved: how to fit the ~10h runtime.** Training is 7.1h of it
+(280k steps at a measured 14.7 st/s UNet / 8.7 st/s DiT, NPAR=1). Options, with the trap:
+
+- **Cut steps** — but the onset must be measured on **both** backbones and the budget set past
+  whichever takes off later. The DiT memorises a fixed batch 50-100x slower than the UNet
+  (measured, see INSIGHTS), so a UNet-derived cutoff would truncate the DiT before its onset
+  and manufacture the registered "UNet wins" result as an artifact. ~1h to measure, and the
+  onset curve is itself evidence for P7.
+- **Rent a 4090** — ~$3, pipeline ~3.5h, nothing cut. Note the earlier decline was premised on
+  Colab being adequate; Colab then measured *slower* than this laptop (11 vs 14.7 st/s), so
+  that premise is falsified.
+- **Shrink to ~700k params** — 2-3x faster, widens the scale caveat P7 already carries.
+- **Cut to 3 seeds** — 4.3h, but weakens rank stability, which is what decides "winner" vs
+  "honest tied set". 5 is the metastrategy floor.
+- **Sweep at n=5000** — halves the sweep tail; safe as long as no value is compared across
+  different n.

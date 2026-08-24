@@ -1,0 +1,7 @@
+/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/optim/lr_scheduler.py:216: UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `lr_scheduler.step()`.  Failure to do this will result in PyTorch skipping the first value of the learning rate schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
+  warnings.warn(
+probe unet lr=0.0001  eps=0.0381 flow=0.1512
+unet: ranks {'0.0001': 0} -> lr 0.0001
+partial reduce over ['unet']: {'unet': 0.0001} (not written)

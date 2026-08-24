@@ -1,0 +1,4 @@
+/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+overfit floors (final, step0, ratio): unet/eps 6.0e-05/1.12=5.4e-05  unet/flow 2.4e-04/1.89=1.3e-04  dit/eps 8.1e-05/1.00=8.1e-05  dit/flow 4.5e-05/1.95=2.3e-05
+selfcheck OK  params unet=2813057 dit=2813496 (0.0% apart), per-pixel leak 0.0e+00 (vs 1.0e-02 with attention on), FM/DDPM marginal err 3.0e-07, eps adapter 0.0e+00 (device nondeterminism floor 0.0e+00), eta=1 err 2.9e-06, euler err 2.7e-04
