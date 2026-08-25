@@ -2,6 +2,6 @@
   import pynvml  # type: ignore[import]
 /home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/optim/lr_scheduler.py:216: UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `lr_scheduler.step()`.  Failure to do this will result in PyTorch skipping the first value of the learning rate schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
   warnings.warn(
-probe unet lr=0.0002  eps=0.0346 flow=0.1447
-unet: ranks {'0.0002': 0} -> lr 0.0002
-partial reduce over ['unet']: {'unet': 0.0002} (not written)
+probe unet lr=0.0005  eps=0.0323 flow=0.1400
+unet: ranks {'0.0005': 0} -> lr 0.0005
+partial reduce over ['unet']: {'unet': 0.0005} (not written)

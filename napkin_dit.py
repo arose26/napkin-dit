@@ -549,15 +549,35 @@ def cmd_probe(a):
             print(f"probe incomplete for {b}: "
                   f"{sum(f.exists() for f in got.values())}/{len(a.lrs)} shards"); return
         res[b] = {k: json.loads(f.read_text()) for k, f in got.items()}
+    grid = sorted(float(k) for k in res[a.backbone[0]])
     for b, d in res.items():
         # Losses are not comparable ACROSS objectives (different targets, different target
-        # variance), so rank LRs within each objective and score by mean rank.
+        # variance), so rank LRs within each objective and score by mean rank. A diverged run
+        # gives nan, and nan sorts unpredictably -- map it to +inf so divergence ranks LAST
+        # rather than winning by accident.
+        key = lambda k, o: (d[k][o] if math.isfinite(d[k][o]) else float("inf"))
         rank = {lr: 0 for lr in d}
         for o in a.objective:
-            for i, lr in enumerate(sorted(d, key=lambda k: d[k][o])):
+            for i, lr in enumerate(sorted(d, key=lambda k: key(k, o))):
                 rank[lr] += i
         best[b] = float(min(rank, key=rank.get))
-        print(f"{b}: ranks {rank} -> lr {best[b]:g}")
+        edge = ("  <-- BOUNDARY: optimum may lie outside the grid, widen --lrs"
+                if best[b] == max(grid) else "")
+        print(f"{b}: ranks {rank} -> lr {best[b]:g}{edge}")
+        bad = [k for k in d for o in a.objective if not math.isfinite(d[k][o])]
+        if bad:
+            print(f"   diverged (non-finite loss) at lr {sorted(set(bad))} -- ranked last")
+
+    # A boundary pick is not a pick, it is a grid that was too narrow. Both backbones landed
+    # on 5e-4 with a 3-point grid {1e-4, 2e-4, 5e-4}, and the DiT was still improving 34%
+    # per grid step there while the UNet had flattened to 3-7% -- i.e. the DiT's optimum was
+    # outside and the UNet's was not, which is exactly the unequal under-tuning that would
+    # have manufactured the registered "UNet wins" result. Refuse to publish it silently.
+    at_edge = [b for b in best if best[b] == max(grid)]
+    if at_edge and not a.allow_boundary_lr:
+        print(f"REFUSING to write lr.json: {at_edge} chose the grid maximum {max(grid):g}. "
+              f"Widen --lrs, or pass --allow-boundary-lr to accept it deliberately.")
+        return
     if set(a.backbone) != set(BACKBONES):
         # A SHARDED invocation (--backbone unet) must not write the global file: it would
         # publish a one-backbone lr.json, and the next shard's reduce would overwrite that

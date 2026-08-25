@@ -147,6 +147,40 @@ would imply to the next reader that EMA cost was load-bearing. The T4 case is **
 settling it costs a fifth process on two cores, which would perturb the run it is trying to
 speed up. Deliberately left unresolved rather than answered with the wrong machine's number.
 
+### The LR probe picked the edge of its own grid, which is not a pick
+
+The probe ran 58 min and returned `{"unet": 5e-4, "dit": 5e-4}` — both at the **maximum** of
+the grid `{1e-4, 2e-4, 5e-4}`. A boundary solution means the optimum was never bracketed.
+
+The trend is what makes it dangerous rather than merely untidy. Tail-mean loss at 1/4 length,
+improvement per grid step:
+
+| cell | 1e-4 | 2e-4 | 5e-4 | last step |
+|---|---|---|---|---|
+| unet/eps | 0.0381 | 0.0346 | 0.0323 | −6.6% |
+| unet/flow | 0.1512 | 0.1447 | 0.1400 | −3.2% |
+| dit/eps | 0.0645 | 0.0634 | 0.0421 | **−33.6%** |
+| dit/flow | 0.2371 | 0.1838 | 0.1625 | **−11.6%** |
+
+The **UNet had flattened and the DiT had not.** So the DiT's optimum lay outside the grid
+while the UNet's sat near its own — training both at 5e-4 would have under-tuned one arm and
+not the other. That is precisely the rigged 2×2 the probe exists to prevent, and it would have
+produced **the pre-registered result** (P1: "UNet wins at napkin scale") as a tuning artifact.
+A confirmed prediction is the worst possible place for this bug to hide, because nothing about
+the output would have looked wrong.
+
+Caught with 0/20 checkpoints written, at a cost of ~2 minutes. Three changes, not one:
+
+- the grid extends to `{1e-4, 2e-4, 5e-4, 1e-3, 2e-3}` so it can bracket;
+- `cmd_probe` **refuses to write `lr.json`** when any backbone picks the grid maximum, unless
+  `--allow-boundary-lr` says so deliberately — a silent boundary pick is now impossible;
+- non-finite losses map to `+inf` before ranking, because 2e-3 may well diverge and `nan`
+  sorts unpredictably, which could have let a *diverged* run win the ranking outright.
+
+The general lesson, and it is not about learning rates: **a hyperparameter search that returns
+an endpoint has not selected anything, it has told you the grid was wrong.** Assert that, don't
+read past it. The first version printed the winner and moved on.
+
 ### A tolerance calibrated on one GPU is not a tolerance
 
 The selfcheck asserts that the eps adapter is the raw network plus the documented scaling
@@ -221,6 +255,12 @@ machine.
   Metastrategy #27 applied to benchmarks and not just to watchers — **check the exit code and
   parse a number the work itself printed, before dividing anything by it.** The corrected
   version reads each worker's rc file and its stdout, and would have refused to print.
+- **`until [ -z "$(nvidia-smi --query-compute-apps=pid ...)" ]` hung for five minutes.**
+  Waiting for *zero GPU processes globally* is a condition another project can prevent from
+  ever becoming true — an unrelated `napkin_gap` process (series 2's ClawStreet query) was
+  holding a CUDA context, so the loop could never exit even though every napkin-dit process
+  had already died. A watcher's condition must be about **my** pids or **my** artifacts, never
+  a global the rest of the machine also writes to.
 - **A silent phase is an unreadable phase.** The probe shards run with `log_every=10**9`, so
   for twenty minutes the only progress signal was `probe=0/6` — which cannot distinguish slow
   from wedged, exactly the state Metastrategy #31 says you most need to detect. What did
