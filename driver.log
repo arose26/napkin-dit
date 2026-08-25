@@ -8,3 +8,8 @@ supervisor: starting, 1 artifacts on disk, max 6 attempts
 == probe starting 2026-08-25T14:48:34Z
 == probe rc=0 2026-08-25T15:46:55Z
 == train starting 2026-08-25T15:46:55Z
+supervisor: starting, 6 artifacts on disk, max 6 attempts
+== selfcheck already done
+== probe starting 2026-08-25T15:55:14Z
+== probe rc=0 2026-08-25T16:38:28Z
+== train starting 2026-08-25T16:38:28Z

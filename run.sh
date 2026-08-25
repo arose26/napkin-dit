@@ -57,12 +57,16 @@ probe_all () {                             # shard by (backbone, lr), then reduc
   # Grid must BRACKET the optimum, not end at it. The first pass used {1e-4,2e-4,5e-4} and
   # both backbones picked 5e-4, the maximum -- with the DiT still improving 34% per grid step
   # there. cmd_probe now refuses to publish a boundary pick, so this grid extends upward.
-  for b in unet dit; do for lr in 1e-4 2e-4 5e-4 1e-3 2e-3; do echo "$b $lr"; done; done \
+  for b in unet dit; do for lr in 1e-4 2e-4 5e-4 1e-3 2e-3 5e-3 1e-2; do echo "$b $lr"; done; done \
     | xargs -P "$NPAR" -L1 bash -c \
       '$0 napkin_dit.py probe --backbone $1 --lrs $2 --steps '"$STEPS"' \
-         > logs/probe-$1-$2.log 2>&1 || echo "FAILED probe $1 $2"' "$PY"
-  $PY napkin_dit.py probe --steps "$STEPS"          # all shards present -> writes out/lr.json
-  [ -f out/lr.json ]
+         > logs/probe-$1-$2.log 2>&1' "$PY" || { echo "probe shards failed"; return 1; }
+  # Delete FIRST, so the existence test below can only be satisfied by THIS run. Previously
+  # it was `[ -f out/lr.json ]` against a file a PREVIOUS probe had written, which reported
+  # success while every shard and the reduce had crashed (Metastrategy #28).
+  rm -f out/lr.json
+  $PY napkin_dit.py probe --steps "$STEPS" || { echo "probe reduce failed"; return 1; }
+  [ -f out/lr.json ] || { echo "reduce wrote no lr.json (boundary refusal?)"; return 1; }
 }
 
 phase probe      probe_all                               || exit 1

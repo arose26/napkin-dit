@@ -1,7 +1,10 @@
 /home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
-/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/optim/lr_scheduler.py:216: UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `lr_scheduler.step()`.  Failure to do this will result in PyTorch skipping the first value of the learning rate schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
-  warnings.warn(
-probe unet lr=0.0005  eps=0.0323 flow=0.1400
-unet: ranks {'0.0005': 0} -> lr 0.0005
-partial reduce over ['unet']: {'unet': 0.0005} (not written)
+unet: ranks {'0.0005': 0} -> lr 0.0005  <-- BOUNDARY: optimum may lie outside the grid, widen --lrs
+Traceback (most recent call last):
+  File "/home/bob/napkin-dit/napkin_dit.py", line 939, in <module>
+    globals()[f"cmd_{a.cmd}"](a)
+  File "/home/bob/napkin-dit/napkin_dit.py", line 577, in cmd_probe
+    if at_edge and not a.allow_boundary_lr:
+                       ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Namespace' object has no attribute 'allow_boundary_lr'

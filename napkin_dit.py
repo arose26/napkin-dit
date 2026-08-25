@@ -562,7 +562,7 @@ def cmd_probe(a):
                 rank[lr] += i
         best[b] = float(min(rank, key=rank.get))
         edge = ("  <-- BOUNDARY: optimum may lie outside the grid, widen --lrs"
-                if best[b] == max(grid) else "")
+                if best[b] == max(grid) and len(grid) > 1 else "")
         print(f"{b}: ranks {rank} -> lr {best[b]:g}{edge}")
         bad = [k for k in d for o in a.objective if not math.isfinite(d[k][o])]
         if bad:
@@ -574,7 +574,7 @@ def cmd_probe(a):
     # outside and the UNet's was not, which is exactly the unequal under-tuning that would
     # have manufactured the registered "UNet wins" result. Refuse to publish it silently.
     at_edge = [b for b in best if best[b] == max(grid)]
-    if at_edge and not a.allow_boundary_lr:
+    if len(grid) > 1 and at_edge and not a.allow_boundary_lr:
         print(f"REFUSING to write lr.json: {at_edge} chose the grid maximum {max(grid):g}. "
               f"Widen --lrs, or pass --allow-boundary-lr to accept it deliberately.")
         return
@@ -925,7 +925,10 @@ if __name__ == "__main__":
     p.add_argument("--steps", type=int, default=14000)
     p.add_argument("--bs", type=int, default=128)
     p.add_argument("--lr", type=float, default=None, help="override out/lr.json")
-    p.add_argument("--lrs", type=float, nargs="+", default=[1e-4, 2e-4, 5e-4])
+    p.add_argument("--lrs", type=float, nargs="+",
+                   default=[1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 1e-2])
+    p.add_argument("--allow-boundary-lr", action="store_true",
+                   help="accept an LR at the edge of the grid instead of refusing")
     p.add_argument("--n", type=int, default=10000, help="samples per sweep point")
     p.add_argument("--nfe", type=int, nargs="+", default=[2, 4, 8, 16, 32, 64])
     p.add_argument("--tier", default="headline", choices=list(TIERS))

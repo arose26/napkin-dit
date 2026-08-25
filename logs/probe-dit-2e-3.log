@@ -1,6 +1,7 @@
 /home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
-unet: ranks {'0.0002': 0} -> lr 0.0002  <-- BOUNDARY: optimum may lie outside the grid, widen --lrs
+probe dit  lr=0.002   eps=0.0337 flow=0.1534
+dit: ranks {'0.002': 0} -> lr 0.002  <-- BOUNDARY: optimum may lie outside the grid, widen --lrs
 Traceback (most recent call last):
   File "/home/bob/napkin-dit/napkin_dit.py", line 939, in <module>
     globals()[f"cmd_{a.cmd}"](a)

@@ -181,6 +181,54 @@ The general lesson, and it is not about learning rates: **a hyperparameter searc
 an endpoint has not selected anything, it has told you the grid was wrong.** Assert that, don't
 read past it. The first version printed the winner and moved on.
 
+### Four defects lined up so that a total failure reported success
+
+The worst hour of the project, and none of the four was individually subtle.
+
+I widened the LR grid with a scripted `str.replace`. The anchor I pattern-matched was
+`default=[1e-4, 2e-4, 5e-4, 1e-3]`; the file actually said `default=[1e-4, 2e-4, 5e-4]`. **I
+asserted on the `run.sh` edit in the same commit and not on this one**, so it silently matched
+nothing. The `--allow-boundary-lr` flag lived in the same replacement string, so it was never
+registered either — while the *code that reads* `a.allow_boundary_lr` went in fine, from a
+different, asserted edit.
+
+What followed, in order:
+
+1. Every probe invocation reached `if at_edge and not a.allow_boundary_lr:` and died with
+   `AttributeError`. All 10 shards — **after** correctly training and writing their JSON — and
+   the final reduce too.
+2. `probe_all` wrapped each shard in `... || echo "FAILED probe $1 $2"`. It printed `FAILED`
+   ten times and **returned 0**, because `echo` succeeds.
+3. The reduce crashed, so it wrote no `lr.json`.
+4. `probe_all`'s success test was `[ -f out/lr.json ]` — and a **stale `lr.json` from the
+   previous probe run** was still sitting there. Existence passed. Phase `rc=0`.
+
+So a phase in which every single unit of work crashed announced success, and training launched
+on learning rates chosen by a *different, narrower grid* — 5e-4 for both arms, the exact
+unequal under-tuning the widening was meant to fix. `driver.log` said `probe rc=0`. Ten lines
+of `FAILED` sat in a log nobody was grepping.
+
+The tell was in the data, not the logs: `lr.json` said 5e-4 while the shard files said 2e-3 was
+the argmin **in every cell**. Two artifacts of the same phase disagreeing is what a stale marker
+looks like from outside.
+
+Fixes, all four:
+
+- **Assert every scripted edit.** An unasserted `str.replace` that matches nothing is a silent
+  no-op that leaves the file *looking* edited. Every edit in the repair commit ends with an
+  `assert` on the anchor going in and the result coming out, and the fix was verified by
+  running `--help` and reading the flag back, not by believing the diff.
+- `probe_all` propagates shard failure (`|| { echo ...; return 1; }`) instead of `|| echo`.
+- **`rm -f out/lr.json` before the reduce**, so the existence test can only be satisfied by
+  *this* run. Metastrategy #28 — a completion marker must be impossible to find anywhere but
+  this run's output — applied to an artifact rather than to a log string.
+- A one-point grid has no boundary, so single-LR shards stop emitting false refusals.
+
+Metastrategy #20 says almost every bug was caught by an assert or a printed distribution and
+never by rereading code. This one is the counter-example that proves the rule: it was caught by
+two *printed artifacts disagreeing with each other*. The assert that would have caught it
+earlier is the one I skipped writing.
+
 ### A tolerance calibrated on one GPU is not a tolerance
 
 The selfcheck asserts that the eps adapter is the raw network plus the documented scaling
