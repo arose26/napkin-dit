@@ -64,6 +64,15 @@ def main():
     assert json.loads((tmp / "lr.json").read_text()) == {"unet": 2e-4, "dit": 2e-4}, \
         "--allow-boundary-lr did not let a deliberate boundary pick through"
 
+    # (3b) a ONE-POINT grid has no boundary to be at. Every sharded call passes a single
+    #      --lrs, so without this the shards emit a refusal every time and the log fills with
+    #      false alarms about a condition that cannot mean anything for a grid of size 1.
+    reset()
+    shard("unet-0.0001", 0.5, 0.5); shard("dit-0.0001", 0.5, 0.5)
+    N.cmd_probe(ns(list(N.BACKBONES), [1e-4]))          # NOT allow=True -- must not refuse
+    assert (tmp / "lr.json").exists(), "a one-point grid was refused as a boundary pick"
+    assert json.loads((tmp / "lr.json").read_text()) == {"unet": 1e-4, "dit": 1e-4}
+
     # (4) a diverged shard (nan loss) must rank LAST, never win
     reset()
     for b in ("unet", "dit"):
