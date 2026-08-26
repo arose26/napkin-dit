@@ -15,60 +15,110 @@ MNIST test set.
 
 ## Result
 
-FMD (lower better), IQM over 5 seeds, Heun + Karras, n=10,000 samples vs the full test set.
-NFE is the **actual spend**, not the request.
+![2x2 denoising](assets/denoise2x2.gif)
+
+*The same seed denoising in all four cells. Rows top→bottom: `unet/eps`, `unet/flow`,
+`dit/eps`, `dit/flow`.*
+
+FMD (lower is better), **IQM over 5 seeds with 95% bootstrap CIs**, Heun solver + Karras
+spacing, n=10,000 samples against the full MNIST test set. NFE is the **actual spend**, not
+the request. Cells whose CI overlaps the best cell in that row are marked `≈` — a tie is a
+result, not a loss.
 
 | NFE | dit/eps | dit/flow | unet/eps | unet/flow |
 |---:|---:|---:|---:|---:|
-| 3 | 13401 | 12413 | 13297 | **11344** |
-| 7 | **47.7** | 57.0 | 219.4 | 280.1 |
-| 15 | 6.86 | 3.82 | 7.71 | **3.64** |
-| 31 | 5.62 | 2.16 | 4.89 | **1.20** |
-| 63 | 5.74 | 2.11 | 4.25 | **0.97** |
+| 3 | 13401 <sub>[12557, 13692]</sub> | 12413 `≈` <sub>[11949, 12943]</sub> | 13297 <sub>[13049, 13881]</sub> | **11344** <sub>[10589, 12249]</sub> |
+| 7 | **47.7** <sub>[33.3, 98.2]</sub> | 57.0 `≈` <sub>[45.4, 78.4]</sub> | 219.4 <sub>[166.3, 273.4]</sub> | 280.1 <sub>[197.9, 357.5]</sub> |
+| 15 | 6.86 `≈` <sub>[3.16, 76.3]</sub> | 3.82 `≈` <sub>[3.51, 4.51]</sub> | 7.71 <sub>[6.75, 9.62]</sub> | **3.64** <sub>[2.85, 4.41]</sub> |
+| 31 | 5.62 <sub>[1.67, 95.7]</sub> | 2.16 <sub>[1.91, 3.34]</sub> | 4.89 <sub>[4.10, 5.81]</sub> | **1.20** <sub>[0.85, 1.58]</sub> |
+| 63 | 5.74 <sub>[1.65, 91.1]</sub> | 2.11 <sub>[1.78, 3.84]</sub> | 4.25 <sub>[3.73, 5.09]</sub> | **0.97** <sub>[0.68, 1.25]</sub> |
 
-**The two changes point in opposite directions at opposite ends of the NFE axis.**
+### 1. The DiT buys low-NFE quality — and this one is solid
 
-- **The DiT buys low-NFE quality.** At 7 NFE it is **4.6× better** than the UNet under
-  ε-prediction and **4.9×** under flow matching, and the CIs do not overlap in either column
-  (`dit/eps` [33.30, 86.16] vs `unet/eps` [166.32, 273.40]; `dit/flow` [45.38, 78.39] vs
-  `unet/flow` [193.80, 357.53]). Rendered samples name the mechanism in one glance: the UNet
-  leaves visible background speckle at 7 NFE and the DiT does not (pixels pinned at ±1: DiT
-  82%, UNet 58%). Both arms run the *same sampler code* through the same `eps_hat` adapter, so
-  this is a network difference, not a sampler difference.
-- **At 7 NFE the objective is a tie, in both backbones.** `unet` ε [166, 273] vs flow
-  [194, 358]; `dit` ε [33, 86] vs flow [45, 78] — overlapping in each. An earlier version of
-  this README read the point estimates and claimed ε-prediction won here. It does not; the
-  comparison is not resolvable at this budget. See [P2](#pre-registered-predictions).
-- **Flow matching buys high-NFE quality.** At 63 NFE it beats ε-prediction **4.4×** in the UNet
-  (0.97 vs 4.25) and 2.7× in the DiT, with non-overlapping bootstrap CIs.
-- **The pairing the field shipped is not the best cell here.** DiT + flow matching scores 2.11
-  at 63 NFE; keeping flow matching and swapping the backbone *back* to a UNet gives **0.97** —
-  2.2× better. At napkin scale the two modern choices do not compose.
+At 7 NFE the DiT is **4.6×** better than the UNet under ε-prediction and **4.9×** under flow
+matching, with **no CI overlap in either column** (`dit/eps` [33.3, 98.2] vs `unet/eps`
+[166.3, 273.4]; `dit/flow` [45.4, 78.4] vs `unet/flow` [197.9, 357.5]).
+
+The rendered samples name the mechanism in one glance — **the UNet leaves background speckle at
+7 NFE and the DiT does not** (pixels pinned at ±1: DiT 82%, UNet 58%):
+
+![nfe7](assets/nfe7.png)
+
+*Rows: `dit/eps`, `dit/flow`, `unet/eps`, `unet/flow`, all at 7 NFE, same seed.*
+
+Both arms run the **same sampler code** through the same `eps_hat(x̃, σ)` adapter, so this
+cannot be a sampler difference. That is not an argument, it is the file structure — and it is
+the single reason this result is interpretable.
+
+### 2. At low NFE the *objective* is a tie
+
+`unet` ε [166, 273] vs flow [198, 358]; `dit` ε [33, 98] vs flow [45, 78]. Overlapping in both
+backbones. An earlier draft of this README read the point estimates and announced that
+ε-prediction won here. It does not — the comparison is not resolvable at this budget.
+
+Worth stating plainly: at 7 NFE the Heun sampler gets only **4 steps** and every cell scores
+between 48 and 280 FMD, against 0.97 for the best high-NFE cell. This is a tie between
+configurations that are all far from usable, not a demonstration that the objective stops
+mattering.
+
+### 3. Flow matching's high-NFE win is mostly a *spacing* artifact
+
+This is the result that most changed on inspection, and the reason spacing was swept across all
+four cells instead of riding along with the objective.
+
+Read off the headline table, flow matching beats ε-prediction **4.4×** at 63 NFE in the UNet
+(0.97 vs 4.25). But the headline fixes Karras spacing for everyone, and **Karras is a bad choice
+for ε-prediction at high NFE**. Giving each objective its own best spacing — Heun, seeds
+{0,1,2}, matched across spacings so the IQM trims identically:
+
+| NFE 63, UNet | karras | t | u | own best |
+|---|---:|---:|---:|---|
+| `unet/eps` | 4.17 | **1.29** | 1.94 | `t` |
+| `unet/flow` | **0.88** | 1.21 | 0.91 | `karras` |
+
+- common Karras → flow wins **4.7×** (0.88 vs 4.17)
+- each at its own best → **tie** (0.88 vs 1.29, CIs overlap)
+
+Same story at 31 NFE: 4.3× at common spacing, a tie at own-best. The advantage survives at
+15 NFE (3.41 vs 5.90) and is gone by 31.
+
+**So "flow matching wins at high NFE" is largely a statement about the sampler you fixed, not
+about the training objective.** Both readings are legitimate — common spacing is the strict
+one-variable ablation, own-best is how a practitioner would actually deploy each method — but
+publishing only the first, as the first draft of this README did, overstates the objective
+effect by roughly 4×.
+
+### 4. The pairing the field shipped is not the best cell here
+
+DiT + flow matching scores **2.11** [1.78, 3.84] at 63 NFE. Keep flow matching and swap the
+backbone *back* to a UNet: **0.97** [0.68, 1.25], non-overlapping. At napkin scale the two
+modern choices do not compose — each helps at a different end of the NFE axis, and putting them
+together buys neither advantage.
 
 ### The anomaly: `dit/eps` is seed-unstable **at the learning rate this probe selected**
 
 Per-seed FMD at 63 NFE — `1.69, 1.72, 129.80, 1.64, 13.82`. Two of five seeds are degraded, and
 the three healthy ones (~1.65) **beat `unet/eps` (3.71–5.12)**. So the UNet's apparent win in
-the ε column at high NFE is a *reliability* gap, not a capability gap.
+the ε column at high NFE is a *reliability* gap, not a capability gap. It is also why every
+`dit/eps` CI in the table above is enormous, and why the DiT rows of the spacing analysis are
+not trustworthy — with 3 seeds the IQM trims nothing, so one collapsed seed dominates.
 
-**Scope this claim carefully — the obvious control was not run.** Every cell trains at 2e-3,
-chosen by the LR probe at ¼ length. That is 10× t07's 2e-4, and a ¼-length criterion structurally
-favours fast-early over stable-late. So the measured statement is "DiT + ε-prediction is
-seed-unstable **at 2e-3**", and the stronger reading — that DiT + ε-prediction is inherently
-unstable at this scale — is **untested here**. The control is one hour of compute (retrain seeds
-2 and 4 at 5e-4 and see whether the collapse disappears); it was deliberately cut for budget, not
-run and buried. Anyone rerunning this should do it first.
-
-The failure is a **saturation collapse**, visible immediately: correct digit shapes with
-compressed dynamic range — 5.8% of pixels pinned at ±1 against 41% for a healthy seed. The
-broken seed had the *lowest training loss in its cell* (0.0284), which is a clean demonstration
-that ε-loss is not sample quality.
+The failure is a **saturation collapse**: correct digit shapes with compressed dynamic range —
+5.8% of pixels pinned at ±1 against 41% for a healthy seed. The collapsed seed had the **lowest
+training loss in its cell** (0.0284 against a cell mean of 0.0310), which is as clean a
+demonstration as this repo produced that ε-loss is not sample quality.
 
 ![anomaly](assets/anomaly-dit-eps.png)
 
 *Rows: `dit/eps` s0 (healthy), s2 (collapsed), s4 (mild), `unet/flow` s0 (reference).*
 
-
+**Scope this claim carefully — the obvious control was not run.** Every cell trains at 2e-3,
+chosen by the LR probe at ¼ length. That is 10× t07's 2e-4, and a ¼-length criterion structurally
+favours fast-early over stable-late. So the measured statement is "DiT + ε-prediction is
+seed-unstable **at 2e-3**"; the stronger reading — that it is inherently unstable at this scale —
+is **untested here**. The control is one hour of compute (retrain seeds 2 and 4 at 5e-4 and see
+whether the collapse disappears); it was cut for budget, not run and buried. Anyone rerunning
+this should do it first.
 
 ## The thing that makes this comparison clean
 
@@ -149,35 +199,9 @@ are the most publishable thing here.
 | **P2** | Flow matching wins at NFE ≤ 8 **regardless of backbone** | **MIXED — both backbones tie.** Scored per [`SCORING-RULE.md`](SCORING-RULE.md), fixed before the data existed. At the only surviving low-NFE point (7 NFE; NFE 3 is excluded because a 2-step Heun schedule is identical under every spacing), CIs overlap in both backbones: `unet` 232.74 [202, 287] vs 305.26 [202, 359]; `dit` 59.21 [33, 110] vs 57.01 [48, 66]. Not the predicted flow win, and **not** the ε win an earlier draft of this README claimed |
 | **P3** | The two changes are **independent**: no interaction | **supported in sign** — the objective effect has the same sign in both backbones at all 5 NFE values. The backbone effect flips once (NFE 15, ε column), but those CIs overlap ([3.16, 72.82] vs [6.75, 9.62]), so it is a tie, not a reversal |
 | **P4** | **Only one** of the two changes transfers down | **supported, more sharply than registered** — exactly one modern choice helps at each end, but it is a *different one*: DiT at 7 NFE, flow matching at 63 |
-| **P5** | The objective effect **shrinks as NFE grows**, ≤ seed band at 64 | **wrong, decisively** — it *grows*: UNet ε/flow ratio goes 0.78 at 7 NFE to 4.4× at 63, CIs non-overlapping |
-| **P6** | Much of any low-NFE flow win is **spacing, not objective** | **PREMISE VOID.** The prediction presupposes a low-NFE flow win to explain away, and there is none: the UNet is numerically the other way, and the DiT's 2.20 margin sits inside overlapping CIs, which the scoring rule defines as a tie. Interpretive call, [stated in full below](#a-judgement-call-in-scoring-p6) |
+| **P5** | The objective effect **shrinks as NFE grows**, ≤ seed band at 64 | **depends on the spacing — the same confound as P2.** At common Karras it *grows* (tie at 7 NFE → flow ahead 4.4× at 63, CIs disjoint), so P5 is **wrong**. With each objective at its own best spacing it peaks at 15 NFE and is **back inside the seed band by 31 and 63**, which is what P5 described. **Wrong on the primary reading, right on the secondary** |
+| **P6** | Much of any low-NFE flow win is **spacing, not objective** | **PREMISE VOID.** The prediction presupposes a low-NFE flow win to explain away, and there is none: the UNet is numerically the other way, and the DiT's 2.20 margin sits inside overlapping CIs, which the scoring rule defines as a tie. Interpretive call, [stated in full below](#a-judgement-call-in-scoring-p6). **Its intuition was sound and mis-scoped**: much of the objective gap really is spacing — at *high* NFE, where P6 did not look |
 | **P7** | The DiT is worse or tied **everywhere** | **wrong** — 4.6× better at 7 NFE |
-
-### The spacing caveat: P2 and P6 are not yet settled
-
-The headline table above fixes **one** spacing (Karras) for all four cells. The spacing tier says
-that was not a neutral choice. Median FMD at 8 NFE, Euler, `dit/eps`'s two collapsed seeds
-excluded so a training-stability problem cannot contaminate a sampler question:
-
-| NFE 8, Euler | karras | t | u |
-|---|---:|---:|---:|
-| unet/eps | **8.98** | 25.17 | 16.76 |
-| unet/flow | 15.50 | 9.23 | **7.71** |
-| dit/eps | 24.01 | 27.79 | **21.15** |
-| dit/flow | 21.16 | 14.20 | **12.27** |
-
-**ε-prediction prefers Karras; flow matching prefers uniform-in-`u`** — its own native spacing.
-Consistent in both backbones, at every NFE. And the objective ranking depends on which you pick:
-forced onto common Karras, ε-pred wins the UNet at 8 NFE (8.98 vs 15.50); with each objective on
-its own best spacing, flow matching wins (7.71 vs 8.98). Same inversion at 16 NFE (UNet) and
-32 NFE (DiT).
-
-**What that does and does not license.** It is clean evidence *within the Euler tier* — same
-solver, same NFE, same seeds, same aggregation — that the objective ranking at low NFE is **not
-identifiable without naming the spacing**. It is **not** evidence that the Heun+Karras headline
-above is a spacing artifact: that comparison would change solver, NFE, aggregation and seed set
-all at once, which is exactly the confound this repo exists to attack. The arm that isolates it
-(Heun × three spacings, matched seeds) is running now, and P2/P6 stay provisional until it lands.
 
 ### A judgement call in scoring P6
 
@@ -191,19 +215,22 @@ arithmetic on a margin indistinguishable from zero produces a meaningless number
 −63777%). Flagged here rather than buried, because it is the one place the pre-committed rule
 did not fully determine the answer.
 
-### The low-NFE regime is weak evidence either way
+### Final tally
 
-At 7 NFE the Heun sampler gets only **4 steps**, and every cell scores between 57 and 305 FMD
-against 0.97 for the best high-NFE cell. "Tie at 7 NFE" is a comparison between configurations
-that are all far from usable. It is correctly reported as a tie, but it is a weak statement, not
-a demonstration that the objective stops mattering at low NFE.
+**One decisively wrong (P7). P1 right with its mechanism refuted. P2 mixed — a tie in both
+backbones. P5 wrong on the primary reading and right on the secondary. P6's premise void but its
+intuition sound and mis-scoped. P3 and P4 supported.**
 
-**Final: two decisively wrong (P5, P7), P1 right with its mechanism refuted, P2 mixed, P6's
-premise void, P3 and P4 supported.**
 The registered story was "the UNet wins on quality, flow matching wins at low NFE, and only one
-change transfers". The measured story is the mirror image on both axes: the DiT wins at *low*
-NFE, flow matching wins at *high* NFE, and which change transfers depends on where you sit on
-the NFE budget.
+change transfers". The measured story **inverts it on the backbone axis** — the DiT wins at low
+NFE, by 4.6× with disjoint CIs — and **dissolves it on the objective axis**: flow matching's
+apparent high-NFE win is largely the sampler spacing the headline held fixed, and shrinks to a
+tie once ε-prediction is given the spacing it prefers.
+
+**Four of the seven predictions turn on a variable the registration never named: the sampler
+spacing.** A prediction about "the objective" is not well-posed without one. That is the most
+useful thing this repo measured, and it is only visible because spacing was swept across all
+four cells instead of being allowed to ride along with the objective it belongs to.
 
 ## Selfcheck — the test suite
 
