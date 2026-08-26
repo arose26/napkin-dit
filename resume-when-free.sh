@@ -16,7 +16,15 @@
 #   NEED_MIB=2600 POLL=120 ./resume-when-free.sh
 set -u
 D=$(cd "$(dirname "$0")" && pwd); cd "$D"
-NEED_MIB=${NEED_MIB:-2600}      # DiT training peak ~2.2GB reserved + ~0.5GB CUDA context
+# 3600, NOT our own ~2700MiB footprint. Measured states on this 6141MiB card:
+#   idle ................. 1968 used -> 4173 free
+#   napkin_skips alone ... 3180 used -> 2961 free
+#   both (the stall) ..... 5641 used ->  500 free
+# A threshold set to our own need (2600) is CLEARED BY 2961 -- it fires while the other job is
+# still running and walks straight back into the contention this script exists to avoid. The
+# threshold must SEPARATE "other job present" from "other job gone", so it belongs between 2961
+# and 4173. The first version used 2600 and was caught at 1/3 checks, seconds from resuming.
+NEED_MIB=${NEED_MIB:-3600}
 POLL=${POLL:-120}
 STABLE=${STABLE:-3}             # consecutive clear checks, so a momentary dip cannot trigger
 RESUME=${RESUME:-./supervise.sh}
@@ -33,6 +41,10 @@ echo "resume-watcher: need ${NEED_MIB}MiB free for ${STABLE} consecutive checks,
 ok=0; n=0
 while [ "$ok" -lt "$STABLE" ]; do
   f=$(free_mib)
+  # A failed nvidia-smi yields an empty string; treat that as busy rather than letting
+  # `[ "" -ge N ]` throw. Never resume on a reading we could not take.
+  case "$f" in ''|*[!0-9]*) echo "resume-watcher: unreadable VRAM ('$f'), treating as busy"
+                            ok=0; sleep "$POLL"; continue ;; esac
   if [ "$f" -ge "$NEED_MIB" ]; then
     ok=$((ok+1)); echo "resume-watcher: ${f}MiB free ($ok/$STABLE) $(date -u +%FT%TZ)"
   else
@@ -43,4 +55,4 @@ while [ "$ok" -lt "$STABLE" ]; do
   [ "$ok" -lt "$STABLE" ] && sleep "$POLL"
 done
 echo "resume-watcher: resuming $RESUME at $(date -u +%FT%TZ)"
-exec $RESUME
+exec $RESUME   # deliberately unquoted: RESUME may carry arguments

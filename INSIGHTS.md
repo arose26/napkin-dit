@@ -402,6 +402,25 @@ machine.
   holding a CUDA context, so the loop could never exit even though every napkin-dit process
   had already died. A watcher's condition must be about **my** pids or **my** artifacts, never
   a global the rest of the machine also writes to.
+- **A second experiment on the same card cost 13x, and no watcher could see it.** `napkin_skips.py`
+  started training on the same 6GB GPU mid-sweep. Combined VRAM hit 5641/6141 MiB and NFE-63
+  sweep points went from **384s to over 5200s**. WSL spills to shared host memory rather than
+  OOMing, so there was no crash, no error, and no failed phase — `supervise.sh` retries on
+  failure and this was not a failure. The only signal was two artifacts disagreeing again: a
+  worker at 100% CPU and no result file in 88 minutes.
+- **The resume watcher's threshold was set to the wrong quantity, and nearly undid the fix.**
+  First version waited for "enough free VRAM for us" (2600 MiB). But the other job alone leaves
+  **2961 MiB free**, which clears 2600 — so it would have resumed straight back into the
+  contention it existed to avoid. It was caught at 1/3 checks, seconds from firing. The
+  threshold has to *separate the states* (other-job-present 2961 vs idle 4173), not measure our
+  own appetite. Sizing a threshold by what you need, rather than by what distinguishes the
+  cases, is a distinct and easy mistake.
+- **`pgrep -f` killed the shell that issued it. Third time.** `kill -TERM $(pgrep -f
+  '[r]esume-when-free.sh')` exited 144 because the bracket trick only disguises the *pattern* —
+  the same command line also contained the plain string `resume-when-free.sh` in later
+  arguments, and `-f` matches the whole line. Documented in this very file, twice, and walked
+  into anyway. The only reliable habit is to not match processes by name at all: use the process
+  group, a pid captured at launch, or read `/proc/*/cmdline` directly.
 - **A silent phase is an unreadable phase.** The probe shards run with `log_every=10**9`, so
   for twenty minutes the only progress signal was `probe=0/6` — which cannot distinguish slow
   from wedged, exactly the state Metastrategy #31 says you most need to detect. What did
