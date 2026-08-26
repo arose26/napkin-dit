@@ -24,3 +24,5 @@ supervisor: starting, 10 artifacts on disk, max 6 attempts
 == agg_headline starting 2026-08-26T03:25:27Z
 == agg_headline rc=0 2026-08-26T03:25:31Z
 == sweep_secondary starting 2026-08-26T03:25:31Z
+== sweep_secondary rc=0 2026-08-26T08:40:58Z
+== sweep_secondary2 starting 2026-08-26T08:40:58Z

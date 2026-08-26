@@ -200,6 +200,36 @@ Getting the *answer* roughly right at high NFE while the *mechanism* is refuted 
 the outcome that would have been easiest to miss if I had scored predictions as a single
 right/wrong bit rather than checking the reason.
 
+### I nearly published a confound-driven correction to my own confound-driven result
+
+The spacing tier landed and appeared to invert the low-NFE headline: under Euler with each
+objective on its preferred spacing, flow matching beats ε-prediction at 8 NFE in both backbones,
+where the published Heun+Karras headline said the opposite. I drafted a revision announcing that
+my own P2 score was wrong and that spacing had been masking a flow-matching win.
+
+Second-opinion review killed it. Between the published headline and the spacing tier, **four
+things differ**: solver (Heun → Euler), NFE (7 → 8), aggregation (IQM over 5 seeds → median over
+3), and seed set (I dropped `dit/eps`'s two collapsed seeds). Attributing the inversion to
+spacing alone is precisely the one-variable-at-a-time failure this entire repo exists to attack —
+committed by me, in a correction to a result I had published an hour earlier, in a project whose
+stated purpose is separating two changes the field moved together.
+
+What survives is narrower and still worth having. **Within the Euler tier** — matched solver,
+NFE, seeds and aggregation — ε-prediction prefers Karras spacing and flow matching prefers
+uniform-in-`u`, consistently in both backbones at every NFE, and the objective ranking inverts
+between the two choices. That licenses "the low-NFE objective ranking is not identifiable without
+naming the spacing." It does **not** license "the Heun headline was a spacing artifact."
+
+The arm that would settle it is Heun × three spacings at matched seeds — which is the
+`secondary2` tier, and it was already running while I was drafting the claim it would have
+tested. The right move was to wait forty minutes.
+
+Two lessons, and the second is the uncomfortable one. Sweeping the spacing across all four cells
+was correct and load-bearing: had it ridden along with the objective, the headline would have
+silently conflated "flow matching" with "flow matching's native sampler" and I would never have
+known. And: **knowing the failure mode by name confers no immunity.** I had written the warning
+about inherited design constants into this file days earlier.
+
 ### A confirmed prediction is the most dangerous place for a bug
 
 Worth stating on its own, because it nearly happened twice.

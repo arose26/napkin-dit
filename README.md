@@ -132,14 +132,40 @@ are the most publishable thing here.
 | # | Prediction | Result |
 |---|---|---|
 | **P1** | UNet wins at every NFE ≥ 16 (conv locality beats learned mixing when data is small) | **right, wrong mechanism** — holds at 31 and 63, but the registered reason fails: the DiT is 4.6× *better* at 7 NFE, and the ε-column win is `dit/eps`'s two unstable seeds, not capability |
-| **P2** | Flow matching wins at NFE ≤ 8 **regardless of backbone** | **wrong, and backwards** — ε-pred wins at 7 NFE in *both* backbones; flow wins from 15 up |
+| **P2** | Flow matching wins at NFE ≤ 8 **regardless of backbone** | **PROVISIONAL — scored under one spacing only.** Under Heun+Karras, ε-pred wins at 7 NFE in both backbones. But the spacing tier shows ε-pred and flow matching *prefer different spacings*, and under Euler the low-NFE ranking flips depending on which you use. Final score pending the Heun×spacing arm — see [the spacing caveat](#the-spacing-caveat-p2-and-p6-are-not-yet-settled) |
 | **P3** | The two changes are **independent**: no interaction | **supported in sign** — the objective effect has the same sign in both backbones at all 5 NFE values. The backbone effect flips once (NFE 15, ε column), but those CIs overlap ([3.16, 72.82] vs [6.75, 9.62]), so it is a tie, not a reversal |
 | **P4** | **Only one** of the two changes transfers down | **supported, more sharply than registered** — exactly one modern choice helps at each end, but it is a *different one*: DiT at 7 NFE, flow matching at 63 |
 | **P5** | The objective effect **shrinks as NFE grows**, ≤ seed band at 64 | **wrong, decisively** — it *grows*: UNet ε/flow ratio goes 0.78 at 7 NFE to 4.4× at 63, CIs non-overlapping |
-| **P6** | Much of any low-NFE flow win is **spacing, not objective** | **premise void** — there is no low-NFE flow win to explain. Secondary tier still measures the spacing rung |
+| **P6** | Much of any low-NFE flow win is **spacing, not objective** | **PROVISIONAL** — spacing turns out to matter enormously, but possibly in the *opposite* direction to the one registered: it may be masking a flow win rather than explaining one away. Pending the same arm |
 | **P7** | The DiT is worse or tied **everywhere** | **wrong** — 4.6× better at 7 NFE |
 
-**Three of seven decisively wrong (P2, P5, P7), and P1 right for a reason the data refutes.**
+### The spacing caveat: P2 and P6 are not yet settled
+
+The headline table above fixes **one** spacing (Karras) for all four cells. The spacing tier says
+that was not a neutral choice. Median FMD at 8 NFE, Euler, `dit/eps`'s two collapsed seeds
+excluded so a training-stability problem cannot contaminate a sampler question:
+
+| NFE 8, Euler | karras | t | u |
+|---|---:|---:|---:|
+| unet/eps | **8.98** | 25.17 | 16.76 |
+| unet/flow | 15.50 | 9.23 | **7.71** |
+| dit/eps | 24.01 | 27.79 | **21.15** |
+| dit/flow | 21.16 | 14.20 | **12.27** |
+
+**ε-prediction prefers Karras; flow matching prefers uniform-in-`u`** — its own native spacing.
+Consistent in both backbones, at every NFE. And the objective ranking depends on which you pick:
+forced onto common Karras, ε-pred wins the UNet at 8 NFE (8.98 vs 15.50); with each objective on
+its own best spacing, flow matching wins (7.71 vs 8.98). Same inversion at 16 NFE (UNet) and
+32 NFE (DiT).
+
+**What that does and does not license.** It is clean evidence *within the Euler tier* — same
+solver, same NFE, same seeds, same aggregation — that the objective ranking at low NFE is **not
+identifiable without naming the spacing**. It is **not** evidence that the Heun+Karras headline
+above is a spacing artifact: that comparison would change solver, NFE, aggregation and seed set
+all at once, which is exactly the confound this repo exists to attack. The arm that isolates it
+(Heun × three spacings, matched seeds) is running now, and P2/P6 stay provisional until it lands.
+
+**Three of seven decisively wrong (P5, P7, and P1's mechanism), two provisional (P2, P6).**
 The registered story was "the UNet wins on quality, flow matching wins at low NFE, and only one
 change transfers". The measured story is the mirror image on both axes: the DiT wins at *low*
 NFE, flow matching wins at *high* NFE, and which change transfers depends on where you sit on
