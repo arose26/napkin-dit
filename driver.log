@@ -28,3 +28,25 @@ supervisor: starting, 10 artifacts on disk, max 6 attempts
 == sweep_secondary2 starting 2026-08-26T08:40:58Z
 resume-watcher: need 2600MiB free for 3 consecutive checks, polling 120s
 resume-watcher: 3001MiB free (1/3) 2026-08-26T11:52:35Z
+resume-watcher: need 3600MiB free for 3 consecutive checks, polling 120s
+resume-watcher: 2949MiB free, need 3600 2026-08-26T11:54:49Z
+resume-watcher: 2713MiB free, need 3600 2026-08-26T12:24:50Z
+resume-watcher: 2671MiB free, need 3600 2026-08-26T12:54:51Z
+resume-watcher: 4642MiB free (1/3) 2026-08-26T13:04:51Z
+resume-watcher: dipped to 3464MiB, resetting
+resume-watcher: 4633MiB free (1/3) 2026-08-26T13:12:52Z
+supervisor: starting, 447 artifacts on disk, max 6 attempts
+== selfcheck already done
+== probe already done
+== train already done
+== sweep_headline already done
+== agg_headline already done
+== sweep_secondary already done
+== sweep_secondary2 starting 2026-08-26T13:17:21Z
+== sweep_secondary2 rc=0 2026-08-26T15:09:43Z
+== agg_secondary starting 2026-08-26T15:09:43Z
+== agg_secondary rc=0 2026-08-26T15:09:48Z
+== gif starting 2026-08-26T15:09:48Z
+== gif rc=0 2026-08-26T15:09:52Z
+ALL-PHASES-COMPLETE
+supervisor: ./run.sh completed rc=0 after 1 attempt(s)

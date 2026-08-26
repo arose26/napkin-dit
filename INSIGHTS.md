@@ -230,6 +230,28 @@ silently conflated "flow matching" with "flow matching's native sampler" and I w
 known. And: **knowing the failure mode by name confers no immunity.** I had written the warning
 about inherited design constants into this file days earlier.
 
+### I published a claim my own confidence intervals refuted, in the same table
+
+The headline README said "at 7 NFE, ε-prediction beats flow matching in **both** backbones
+(47.66 vs 57.01 for the DiT; 219.41 vs 280.09 for the UNet)", and scored P2 as *wrong and
+backwards* on that basis.
+
+The CIs were printed in the same table, two columns over: `unet/eps` [166.32, 273.40] against
+`unet/flow` [193.80, 357.53], and `dit/eps` [33.30, 86.16] against `dit/flow` [45.38, 78.39].
+Both overlap. Both were ties. I had computed the intervals, printed them, and then read the
+point estimates.
+
+This is the same failure as the earlier "worst cell" error — an assertion about a table sitting
+in front of me — and it is exactly what the repo's own methodology section exists to prevent.
+Reporting ties as ties is the *stated reason* for running 5 seeds and bootstrapping in the first
+place; having the machinery and then not consulting it is worse than not having it, because the
+intervals lend the wrong claim an air of rigour.
+
+The correction: P2 is **MIXED**, both backbones tie at the only low-NFE point the scoring rule
+admits. The DiT's *backbone* advantage at the same NFE survives the same check with room to
+spare — neither column's intervals come close to overlapping — so the headline finding stands
+and only the objective half of it was wrong.
+
 ### A confirmed prediction is the most dangerous place for a bug
 
 Worth stating on its own, because it nearly happened twice.

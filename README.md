@@ -29,10 +29,16 @@ NFE is the **actual spend**, not the request.
 **The two changes point in opposite directions at opposite ends of the NFE axis.**
 
 - **The DiT buys low-NFE quality.** At 7 NFE it is **4.6× better** than the UNet under
-  ε-prediction and **4.9×** under flow matching. Rendered samples name the mechanism in one
-  glance: the UNet leaves visible background speckle at 7 NFE and the DiT does not (pixels
-  pinned at ±1: DiT 82%, UNet 58%). Both arms run the *same sampler code* through the same
-  `eps_hat` adapter, so this is a network difference, not a sampler difference.
+  ε-prediction and **4.9×** under flow matching, and the CIs do not overlap in either column
+  (`dit/eps` [33.30, 86.16] vs `unet/eps` [166.32, 273.40]; `dit/flow` [45.38, 78.39] vs
+  `unet/flow` [193.80, 357.53]). Rendered samples name the mechanism in one glance: the UNet
+  leaves visible background speckle at 7 NFE and the DiT does not (pixels pinned at ±1: DiT
+  82%, UNet 58%). Both arms run the *same sampler code* through the same `eps_hat` adapter, so
+  this is a network difference, not a sampler difference.
+- **At 7 NFE the objective is a tie, in both backbones.** `unet` ε [166, 273] vs flow
+  [194, 358]; `dit` ε [33, 86] vs flow [45, 78] — overlapping in each. An earlier version of
+  this README read the point estimates and claimed ε-prediction won here. It does not; the
+  comparison is not resolvable at this budget. See [P2](#pre-registered-predictions).
 - **Flow matching buys high-NFE quality.** At 63 NFE it beats ε-prediction **4.4×** in the UNet
   (0.97 vs 4.25) and 2.7× in the DiT, with non-overlapping bootstrap CIs.
 - **The pairing the field shipped is not the best cell here.** DiT + flow matching scores 2.11
@@ -140,11 +146,11 @@ are the most publishable thing here.
 | # | Prediction | Result |
 |---|---|---|
 | **P1** | UNet wins at every NFE ≥ 16 (conv locality beats learned mixing when data is small) | **right, wrong mechanism** — holds at 31 and 63, but the registered reason fails: the DiT is 4.6× *better* at 7 NFE, and the ε-column win is `dit/eps`'s two unstable seeds, not capability |
-| **P2** | Flow matching wins at NFE ≤ 8 **regardless of backbone** | **PROVISIONAL — scored under one spacing only.** Under Heun+Karras, ε-pred wins at 7 NFE in both backbones. But the spacing tier shows ε-pred and flow matching *prefer different spacings*, and under Euler the low-NFE ranking flips depending on which you use. Final score pending the Heun×spacing arm — see [the spacing caveat](#the-spacing-caveat-p2-and-p6-are-not-yet-settled) |
+| **P2** | Flow matching wins at NFE ≤ 8 **regardless of backbone** | **MIXED — both backbones tie.** Scored per [`SCORING-RULE.md`](SCORING-RULE.md), fixed before the data existed. At the only surviving low-NFE point (7 NFE; NFE 3 is excluded because a 2-step Heun schedule is identical under every spacing), CIs overlap in both backbones: `unet` 232.74 [202, 287] vs 305.26 [202, 359]; `dit` 59.21 [33, 110] vs 57.01 [48, 66]. Not the predicted flow win, and **not** the ε win an earlier draft of this README claimed |
 | **P3** | The two changes are **independent**: no interaction | **supported in sign** — the objective effect has the same sign in both backbones at all 5 NFE values. The backbone effect flips once (NFE 15, ε column), but those CIs overlap ([3.16, 72.82] vs [6.75, 9.62]), so it is a tie, not a reversal |
 | **P4** | **Only one** of the two changes transfers down | **supported, more sharply than registered** — exactly one modern choice helps at each end, but it is a *different one*: DiT at 7 NFE, flow matching at 63 |
 | **P5** | The objective effect **shrinks as NFE grows**, ≤ seed band at 64 | **wrong, decisively** — it *grows*: UNet ε/flow ratio goes 0.78 at 7 NFE to 4.4× at 63, CIs non-overlapping |
-| **P6** | Much of any low-NFE flow win is **spacing, not objective** | **PROVISIONAL** — spacing turns out to matter enormously, but possibly in the *opposite* direction to the one registered: it may be masking a flow win rather than explaining one away. Pending the same arm |
+| **P6** | Much of any low-NFE flow win is **spacing, not objective** | **PREMISE VOID.** The prediction presupposes a low-NFE flow win to explain away, and there is none: the UNet is numerically the other way, and the DiT's 2.20 margin sits inside overlapping CIs, which the scoring rule defines as a tie. Interpretive call, [stated in full below](#a-judgement-call-in-scoring-p6) |
 | **P7** | The DiT is worse or tied **everywhere** | **wrong** — 4.6× better at 7 NFE |
 
 ### The spacing caveat: P2 and P6 are not yet settled
@@ -173,7 +179,27 @@ above is a spacing artifact: that comparison would change solver, NFE, aggregati
 all at once, which is exactly the confound this repo exists to attack. The arm that isolates it
 (Heun × three spacings, matched seeds) is running now, and P2/P6 stay provisional until it lands.
 
-**Three of seven decisively wrong (P5, P7, and P1's mechanism), two provisional (P2, P6).**
+### A judgement call in scoring P6
+
+The rule stated P6's precondition as "a low-NFE flow win must exist at common spacing" without
+saying whether a *numerical* win inside overlapping CIs counts. The DiT's flow arm is ahead by
+2.20 (57.01 vs 59.21) with CIs [48, 66] and [33, 110].
+
+Resolved **against** P6 — treating it as no win — for two reasons: the same rule says an overlap
+is a tie and must never be silently resolved, and running the "recovers ≥ half the gap"
+arithmetic on a margin indistinguishable from zero produces a meaningless number (it computes to
+−63777%). Flagged here rather than buried, because it is the one place the pre-committed rule
+did not fully determine the answer.
+
+### The low-NFE regime is weak evidence either way
+
+At 7 NFE the Heun sampler gets only **4 steps**, and every cell scores between 57 and 305 FMD
+against 0.97 for the best high-NFE cell. "Tie at 7 NFE" is a comparison between configurations
+that are all far from usable. It is correctly reported as a tie, but it is a weak statement, not
+a demonstration that the objective stops mattering at low NFE.
+
+**Final: two decisively wrong (P5, P7), P1 right with its mechanism refuted, P2 mixed, P6's
+premise void, P3 and P4 supported.**
 The registered story was "the UNet wins on quality, flow matching wins at low NFE, and only one
 change transfers". The measured story is the mirror image on both axes: the DiT wins at *low*
 NFE, flow matching wins at *high* NFE, and which change transfers depends on where you sit on
