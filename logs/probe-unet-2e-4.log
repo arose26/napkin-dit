@@ -1,10 +1,4 @@
 /home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
-unet: ranks {'0.0002': 0} -> lr 0.0002  <-- BOUNDARY: optimum may lie outside the grid, widen --lrs
-Traceback (most recent call last):
-  File "/home/bob/napkin-dit/napkin_dit.py", line 939, in <module>
-    globals()[f"cmd_{a.cmd}"](a)
-  File "/home/bob/napkin-dit/napkin_dit.py", line 577, in cmd_probe
-    if at_edge and not a.allow_boundary_lr:
-                       ^^^^^^^^^^^^^^^^^^^
-AttributeError: 'Namespace' object has no attribute 'allow_boundary_lr'
+unet: ranks {'0.0002': 0} -> lr 0.0002
+partial reduce over ['unet']: {'unet': 0.0002} (not written)

@@ -1,0 +1,31 @@
+/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+dit/eps s2 step 500/14000 loss 0.0632 59s
+dit/eps s2 step 1000/14000 loss 0.0678 117s
+dit/eps s2 step 1500/14000 loss 0.0611 175s
+dit/eps s2 step 2000/14000 loss 0.0418 234s
+dit/eps s2 step 2500/14000 loss 0.0378 292s
+dit/eps s2 step 3000/14000 loss 0.0311 351s
+dit/eps s2 step 3500/14000 loss 0.0330 410s
+dit/eps s2 step 4000/14000 loss 0.0374 468s
+dit/eps s2 step 4500/14000 loss 0.0338 526s
+dit/eps s2 step 5000/14000 loss 0.0308 585s
+dit/eps s2 step 5500/14000 loss 0.0339 643s
+dit/eps s2 step 6000/14000 loss 0.0295 701s
+dit/eps s2 step 6500/14000 loss 0.0340 760s
+dit/eps s2 step 7000/14000 loss 0.0313 818s
+dit/eps s2 step 7500/14000 loss 0.0337 876s
+dit/eps s2 step 8000/14000 loss 0.0326 935s
+dit/eps s2 step 8500/14000 loss 0.0339 993s
+dit/eps s2 step 9000/14000 loss 0.0304 1051s
+dit/eps s2 step 9500/14000 loss 0.0340 1110s
+dit/eps s2 step 10000/14000 loss 0.0298 1168s
+dit/eps s2 step 10500/14000 loss 0.0297 1226s
+dit/eps s2 step 11000/14000 loss 0.0252 1285s
+dit/eps s2 step 11500/14000 loss 0.0312 1343s
+dit/eps s2 step 12000/14000 loss 0.1582 1402s
+dit/eps s2 step 12500/14000 loss 0.0318 1460s
+dit/eps s2 step 13000/14000 loss 0.0308 1518s
+dit/eps s2 step 13500/14000 loss 0.0352 1577s
+dit/eps s2 step 14000/14000 loss 0.0315 1635s
+saved /home/bob/napkin-dit/out/ckpt/dit-eps-s2.pt (1635s)

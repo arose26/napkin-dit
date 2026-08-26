@@ -24,3 +24,9 @@ Traceback (most recent call last):
     if at_edge and not a.allow_boundary_lr:
                        ^^^^^^^^^^^^^^^^^^^
 AttributeError: 'Namespace' object has no attribute 'allow_boundary_lr'
+/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+unet: ranks {'0.0001': 12, '0.0002': 10, '0.0005': 7, '0.001': 3, '0.002': 0, '0.005': 3, '0.01': 7} -> lr 0.002
+dit: ranks {'0.0001': 9, '0.0002': 7, '0.0005': 5, '0.001': 3, '0.002': 1, '0.005': 5, '0.01': 12} -> lr 0.002
+   diverged (non-finite loss) at lr ['0.005', '0.01'] -- ranked last
+chosen LRs: {'unet': 0.002, 'dit': 0.002}

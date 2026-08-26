@@ -13,3 +13,14 @@ supervisor: starting, 6 artifacts on disk, max 6 attempts
 == probe starting 2026-08-25T15:55:14Z
 == probe rc=0 2026-08-25T16:38:28Z
 == train starting 2026-08-25T16:38:28Z
+supervisor: starting, 10 artifacts on disk, max 6 attempts
+== selfcheck already done
+== probe starting 2026-08-25T16:41:42Z
+== probe rc=0 2026-08-25T17:25:00Z
+== train starting 2026-08-25T17:25:00Z
+== train rc=0 2026-08-26T00:34:05Z
+== sweep_headline starting 2026-08-26T00:34:05Z
+== sweep_headline rc=0 2026-08-26T03:25:27Z
+== agg_headline starting 2026-08-26T03:25:27Z
+== agg_headline rc=0 2026-08-26T03:25:31Z
+== sweep_secondary starting 2026-08-26T03:25:31Z

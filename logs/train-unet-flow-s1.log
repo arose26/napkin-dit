@@ -1,0 +1,33 @@
+/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/optim/lr_scheduler.py:216: UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `lr_scheduler.step()`.  Failure to do this will result in PyTorch skipping the first value of the learning rate schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
+  warnings.warn(
+unet/flow s1 step 500/14000 loss 0.1709 34s
+unet/flow s1 step 1000/14000 loss 0.1544 67s
+unet/flow s1 step 1500/14000 loss 0.1458 100s
+unet/flow s1 step 2000/14000 loss 0.1432 133s
+unet/flow s1 step 2500/14000 loss 0.1307 167s
+unet/flow s1 step 3000/14000 loss 0.1431 200s
+unet/flow s1 step 3500/14000 loss 0.1384 233s
+unet/flow s1 step 4000/14000 loss 0.1386 267s
+unet/flow s1 step 4500/14000 loss 0.1518 300s
+unet/flow s1 step 5000/14000 loss 0.1289 333s
+unet/flow s1 step 5500/14000 loss 0.1406 366s
+unet/flow s1 step 6000/14000 loss 0.1238 399s
+unet/flow s1 step 6500/14000 loss 0.1391 432s
+unet/flow s1 step 7000/14000 loss 0.1328 466s
+unet/flow s1 step 7500/14000 loss 0.1313 499s
+unet/flow s1 step 8000/14000 loss 0.1341 532s
+unet/flow s1 step 8500/14000 loss 0.1285 565s
+unet/flow s1 step 9000/14000 loss 0.1287 598s
+unet/flow s1 step 9500/14000 loss 0.1422 632s
+unet/flow s1 step 10000/14000 loss 0.1352 665s
+unet/flow s1 step 10500/14000 loss 0.1286 698s
+unet/flow s1 step 11000/14000 loss 0.1347 732s
+unet/flow s1 step 11500/14000 loss 0.1191 765s
+unet/flow s1 step 12000/14000 loss 0.1232 798s
+unet/flow s1 step 12500/14000 loss 0.1260 831s
+unet/flow s1 step 13000/14000 loss 0.1307 864s
+unet/flow s1 step 13500/14000 loss 0.1232 897s
+unet/flow s1 step 14000/14000 loss 0.1266 931s
+saved /home/bob/napkin-dit/out/ckpt/unet-flow-s1.pt (931s)

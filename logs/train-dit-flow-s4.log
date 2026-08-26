@@ -1,0 +1,31 @@
+/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+dit/flow s4 step 500/14000 loss 0.2544 58s
+dit/flow s4 step 1000/14000 loss 0.2194 117s
+dit/flow s4 step 1500/14000 loss 0.1919 175s
+dit/flow s4 step 2000/14000 loss 0.1707 233s
+dit/flow s4 step 2500/14000 loss 0.1576 291s
+dit/flow s4 step 3000/14000 loss 0.1518 350s
+dit/flow s4 step 3500/14000 loss 0.1404 408s
+dit/flow s4 step 4000/14000 loss 0.1536 466s
+dit/flow s4 step 4500/14000 loss 0.1428 524s
+dit/flow s4 step 5000/14000 loss 0.1384 583s
+dit/flow s4 step 5500/14000 loss 0.1404 641s
+dit/flow s4 step 6000/14000 loss 0.1514 699s
+dit/flow s4 step 6500/14000 loss 0.1252 758s
+dit/flow s4 step 7000/14000 loss 0.1453 816s
+dit/flow s4 step 7500/14000 loss 0.1509 874s
+dit/flow s4 step 8000/14000 loss 0.1487 933s
+dit/flow s4 step 8500/14000 loss 0.1480 991s
+dit/flow s4 step 9000/14000 loss 0.1443 1050s
+dit/flow s4 step 9500/14000 loss 0.1418 1108s
+dit/flow s4 step 10000/14000 loss 0.1352 1167s
+dit/flow s4 step 10500/14000 loss 0.1533 1226s
+dit/flow s4 step 11000/14000 loss 0.1480 1284s
+dit/flow s4 step 11500/14000 loss 0.1319 1343s
+dit/flow s4 step 12000/14000 loss 0.1408 1401s
+dit/flow s4 step 12500/14000 loss 0.1376 1460s
+dit/flow s4 step 13000/14000 loss 0.1385 1518s
+dit/flow s4 step 13500/14000 loss 0.1384 1577s
+dit/flow s4 step 14000/14000 loss 0.1391 1635s
+saved /home/bob/napkin-dit/out/ckpt/dit-flow-s4.pt (1635s)

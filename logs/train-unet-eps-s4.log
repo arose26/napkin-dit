@@ -1,0 +1,31 @@
+/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+unet/eps s4 step 500/14000 loss 0.0437 34s
+unet/eps s4 step 1000/14000 loss 0.0359 67s
+unet/eps s4 step 1500/14000 loss 0.0352 100s
+unet/eps s4 step 2000/14000 loss 0.0324 133s
+unet/eps s4 step 2500/14000 loss 0.0282 166s
+unet/eps s4 step 3000/14000 loss 0.0291 200s
+unet/eps s4 step 3500/14000 loss 0.0296 233s
+unet/eps s4 step 4000/14000 loss 0.0279 266s
+unet/eps s4 step 4500/14000 loss 0.0361 300s
+unet/eps s4 step 5000/14000 loss 0.0304 333s
+unet/eps s4 step 5500/14000 loss 0.0297 367s
+unet/eps s4 step 6000/14000 loss 0.0317 400s
+unet/eps s4 step 6500/14000 loss 0.0264 434s
+unet/eps s4 step 7000/14000 loss 0.0260 467s
+unet/eps s4 step 7500/14000 loss 0.0290 501s
+unet/eps s4 step 8000/14000 loss 0.0311 534s
+unet/eps s4 step 8500/14000 loss 0.0304 567s
+unet/eps s4 step 9000/14000 loss 0.0290 601s
+unet/eps s4 step 9500/14000 loss 0.0322 634s
+unet/eps s4 step 10000/14000 loss 0.0278 668s
+unet/eps s4 step 10500/14000 loss 0.0306 702s
+unet/eps s4 step 11000/14000 loss 0.0340 735s
+unet/eps s4 step 11500/14000 loss 0.0270 769s
+unet/eps s4 step 12000/14000 loss 0.0250 802s
+unet/eps s4 step 12500/14000 loss 0.0287 835s
+unet/eps s4 step 13000/14000 loss 0.0301 868s
+unet/eps s4 step 13500/14000 loss 0.0249 902s
+unet/eps s4 step 14000/14000 loss 0.0286 936s
+saved /home/bob/napkin-dit/out/ckpt/unet-eps-s4.pt (936s)

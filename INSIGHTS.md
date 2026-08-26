@@ -181,6 +181,64 @@ The general lesson, and it is not about learning rates: **a hyperparameter searc
 an endpoint has not selected anything, it has told you the grid was wrong.** Assert that, don't
 read past it. The first version printed the winner and moved on.
 
+### The registered story was the mirror image of the measured one
+
+Three of seven pre-registered predictions came back decisively wrong, and the fourth was right
+for a reason the data refutes. Registered: *the UNet wins on quality, flow matching wins at low
+NFE.* Measured: **the DiT wins at low NFE, flow matching wins at high NFE.** Both axes
+inverted.
+
+The DiT's low-NFE win is 4.6× (ε) and 4.9× (flow) at 7 NFE, and the mechanism was visible in
+one contact sheet: **the UNet leaves background speckle at 7 NFE and the DiT does not** — 82%
+of DiT pixels pinned at ±1 against the UNet's 58%. This is the payoff for the one-sampler
+design. Both arms run identical solver code through the same `eps_hat(x̃, σ)` adapter, so the
+difference cannot be a sampler difference, and I did not have to argue that — it is structural.
+Had I written two samplers, this result would have been uninterpretable.
+
+The registered rationale for P1 was "conv locality beats learned mixing when data is small".
+Getting the *answer* roughly right at high NFE while the *mechanism* is refuted at low NFE is
+the outcome that would have been easiest to miss if I had scored predictions as a single
+right/wrong bit rather than checking the reason.
+
+### A confirmed prediction is the most dangerous place for a bug
+
+Worth stating on its own, because it nearly happened twice.
+
+The LR-grid boundary bug would have produced P1 ("UNet wins") as a **tuning artifact** — the DiT
+under-tuned, the UNet not. The output would have matched the registration exactly, and nothing
+about it would have looked wrong. I only found it because the probe printed its own grid and the
+argmin sat at the edge.
+
+Then the second-opinion review of my *scoring* caught two factual errors in the writeup: I wrote
+that DiT+flow was "the worst of the four cells at high NFE" when the table plainly showed it
+second-best, and I claimed clean sign-independence for P3 when the backbone effect flips once at
+NFE 15. Both were assertions about a table that was directly in front of me.
+
+The pattern in both: **the error was invisible precisely because the conclusion was the one I
+expected.** Verification has to be cheapest where confidence is highest, which is the opposite
+of where it naturally goes.
+
+### `dit/eps` fails by desaturating, and the loss cannot see it
+
+Per-seed FMD at 63 NFE for `dit/eps`: `1.69, 1.72, 129.80, 1.64, 13.82`. Two of five seeds
+degraded. The three healthy ones land at ~1.65 and **beat `unet/eps`'s 3.71–5.12**, so what
+reads as a UNet win in the ε column is a *reliability* gap, not a capability gap — and IQM over
+5 seeds reports the reliability, which is the correct thing for it to report.
+
+The failure mode is a **saturation collapse**: correct digit shapes with compressed dynamic
+range, 5.8% of pixels pinned at ±1 against a healthy seed's 41%. It is obvious in a contact
+sheet and invisible in the loss — the collapsed seed had the **lowest final training loss of its
+entire cell** (0.0284 against a cell mean of 0.0310).
+
+That is the cleanest demonstration in this project of why the artifact gets eyeballed before the
+aggregate is believed. A ranking built on training loss would have called seed 2 the *best* of
+the five.
+
+Open: whether this is a property of DiT+ε or of DiT+ε *at the probe-selected 2e-3*. One
+follow-up arm settles it — retrain seeds 2 and 4 at 5e-4 and see whether the collapse
+disappears. Registered here before running it, so the answer cannot be reinterpreted after the
+fact.
+
 ### Four defects lined up so that a total failure reported success
 
 The worst hour of the project, and none of the four was individually subtle.

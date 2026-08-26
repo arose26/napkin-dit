@@ -1,0 +1,14 @@
+/home/bob/.pyenv/versions/3.11.10/lib/python3.11/site-packages/torch/cuda/__init__.py:58: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+
+=== solver=heun spacing=karras   FMD, IQM over seeds [95% bootstrap CI] ===
+  NFE                    dit/eps                   dit/flow                   unet/eps                  unet/flow
+    3 13401.42 [12882.88,13614.49]12412.97 [12082.50,12784.13]13296.65 [13096.67,13711.88]11344.41 [10800.45,11994.90]
+       rank-stability P(best@k == best@N): k=1:1.00 k=2:1.00 k=3:1.00 k=4:1.00 k=5:1.00 k=6:1.00 k=7:1.00 k=8:1.00 k=9:1.00 k=10:1.00
+    7         47.66 [33.30,86.16]        57.01 [45.38,78.39]     219.41 [166.32,273.40]     280.09 [193.80,357.53]
+   15           6.86 [3.16,72.82]           3.82 [3.51,4.51]           7.71 [6.75,9.62]           3.64 [2.85,4.41]
+   31           5.62 [1.66,91.77]           2.16 [1.91,3.34]           4.89 [4.10,5.81]           1.20 [0.85,1.58]
+   63           5.74 [1.65,87.11]           2.11 [1.78,3.84]           4.25 [3.73,5.09]           0.97 [0.68,1.25]
+       rank-stability P(best@k == best@N): k=1:1.00 k=2:1.00 k=3:1.00 k=4:1.00 k=5:1.00
+
+wrote /home/bob/napkin-dit/out/ablation-headline.png
