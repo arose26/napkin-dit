@@ -39,11 +39,19 @@ NFE is the **actual spend**, not the request.
   at 63 NFE; keeping flow matching and swapping the backbone *back* to a UNet gives **0.97** —
   2.2× better. At napkin scale the two modern choices do not compose.
 
-### The anomaly: `dit/eps` is seed-unstable
+### The anomaly: `dit/eps` is seed-unstable **at the learning rate this probe selected**
 
 Per-seed FMD at 63 NFE — `1.69, 1.72, 129.80, 1.64, 13.82`. Two of five seeds are degraded, and
 the three healthy ones (~1.65) **beat `unet/eps` (3.71–5.12)**. So the UNet's apparent win in
 the ε column at high NFE is a *reliability* gap, not a capability gap.
+
+**Scope this claim carefully — the obvious control was not run.** Every cell trains at 2e-3,
+chosen by the LR probe at ¼ length. That is 10× t07's 2e-4, and a ¼-length criterion structurally
+favours fast-early over stable-late. So the measured statement is "DiT + ε-prediction is
+seed-unstable **at 2e-3**", and the stronger reading — that DiT + ε-prediction is inherently
+unstable at this scale — is **untested here**. The control is one hour of compute (retrain seeds
+2 and 4 at 5e-4 and see whether the collapse disappears); it was deliberately cut for budget, not
+run and buried. Anyone rerunning this should do it first.
 
 The failure is a **saturation collapse**, visible immediately: correct digit shapes with
 compressed dynamic range — 5.8% of pixels pinned at ±1 against 41% for a healthy seed. The

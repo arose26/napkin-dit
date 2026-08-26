@@ -264,10 +264,15 @@ That is the cleanest demonstration in this project of why the artifact gets eyeb
 aggregate is believed. A ranking built on training loss would have called seed 2 the *best* of
 the five.
 
-Open: whether this is a property of DiT+ε or of DiT+ε *at the probe-selected 2e-3*. One
-follow-up arm settles it — retrain seeds 2 and 4 at 5e-4 and see whether the collapse
-disappears. Registered here before running it, so the answer cannot be reinterpreted after the
-fact.
+Open, and **left open deliberately**: whether this is a property of DiT+ε or of DiT+ε *at the
+probe-selected 2e-3*. One follow-up arm settles it — retrain seeds 2 and 4 at 5e-4 and see
+whether the collapse disappears, about an hour of compute. It was registered here before being
+run, so the answer could not be reinterpreted after the fact; then it was **cut for budget**.
+
+The honest consequence is that the README's claim had to be weakened to match what was actually
+measured — "seed-unstable at 2e-3" rather than "seed-unstable" — because the stronger reading is
+the one the missing control would have tested. Cutting an experiment is allowed; letting the
+claim keep the scope the experiment would have earned is not.
 
 ### Four defects lined up so that a total failure reported success
 
